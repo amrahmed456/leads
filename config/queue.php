@@ -17,6 +17,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Scheduled Queue Worker (shared hosting)
+    |--------------------------------------------------------------------------
+    |
+    | Shared hosting (cPanel) cannot keep a queue worker running. When enabled,
+    | the scheduler starts a short-lived worker every minute that processes
+    | waiting jobs and exits, so a single cron entry (schedule:run) is all the
+    | server needs. Disable it where a permanent worker runs instead.
+    |
+    */
+
+    'scheduled_worker' => [
+        'enabled' => (bool) env('QUEUE_SCHEDULED_WORKER', true),
+        'max_time' => (int) env('QUEUE_SCHEDULED_WORKER_MAX_TIME', 50),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Queue Connections
     |--------------------------------------------------------------------------
     |

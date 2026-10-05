@@ -4,8 +4,11 @@ namespace App\Livewire\Businesses;
 
 use App\Discovery\DiscoveryProviderRegistry;
 use App\Enums\BusinessCategory;
+use App\Enums\LeadGrade;
+use App\Enums\OpportunityType;
 use App\Models\Business;
 use App\Models\BusinessSource;
+use App\Models\LeadScore;
 use App\Models\SearchCampaign;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
@@ -21,13 +24,14 @@ class Index extends Component
 
     public const SORTS = [
         'newest' => 'Newest first',
+        'lead_score' => 'Highest lead score',
         'name' => 'Name (A–Z)',
         'name_desc' => 'Name (Z–A)',
         'rating' => 'Highest rating',
         'reviews' => 'Most reviews',
     ];
 
-    private const FILTERS = ['search', 'campaign', 'provider', 'city', 'category', 'website', 'phone', 'sort'];
+    private const FILTERS = ['search', 'campaign', 'provider', 'city', 'category', 'website', 'phone', 'opportunity', 'grade', 'sort'];
 
     #[Url(as: 'q', except: '')]
     public string $search = '';
@@ -51,6 +55,12 @@ class Index extends Component
     /** "", "with" or "without" */
     #[Url(except: '')]
     public string $phone = '';
+
+    #[Url(except: '')]
+    public string $opportunity = '';
+
+    #[Url(except: '')]
+    public string $grade = '';
 
     #[Url(except: 'newest')]
     public string $sort = 'newest';
@@ -78,12 +88,14 @@ class Index extends Component
         $registry = app(DiscoveryProviderRegistry::class);
 
         return view('livewire.businesses.index', [
-            'businesses' => $this->query()->with('sources')->paginate(25),
+            'businesses' => $this->query()->with(['sources', 'leadScore', 'opportunities'])->paginate(25),
             'campaigns' => SearchCampaign::query()->latest()->pluck('name', 'id'),
             'providers' => BusinessSource::query()->distinct()->orderBy('provider')->pluck('provider')
                 ->mapWithKeys(fn (string $provider) => [$provider => $registry->label($provider)]),
             'cities' => Business::query()->whereNotNull('city')->distinct()->orderBy('city')->pluck('city'),
             'categories' => BusinessCategory::options(),
+            'opportunityTypes' => OpportunityType::options(),
+            'grades' => LeadGrade::cases(),
             'sorts' => self::SORTS,
             'filtered' => collect(self::FILTERS)->contains(fn (string $filter) => $this->{$filter} !== ($filter === 'sort' ? 'newest' : '')),
         ]);
@@ -107,10 +119,17 @@ class Index extends Component
             ->when($this->website === 'with', fn (Builder $query) => $query->whereNotNull('website'))
             ->when($this->website === 'without', fn (Builder $query) => $query->whereNull('website'))
             ->when($this->phone === 'with', fn (Builder $query) => $query->whereNotNull('phone'))
-            ->when($this->phone === 'without', fn (Builder $query) => $query->whereNull('phone'));
+            ->when($this->phone === 'without', fn (Builder $query) => $query->whereNull('phone'))
+            ->when(OpportunityType::tryFrom($this->opportunity), fn (Builder $query, OpportunityType $type) => $query->whereHas(
+                'opportunities', fn (Builder $opportunities) => $opportunities->where('type', $type),
+            ))
+            ->when(LeadGrade::tryFrom($this->grade), fn (Builder $query, LeadGrade $grade) => $query->whereHas(
+                'leadScore', fn (Builder $score) => $score->where('grade', $grade),
+            ));
 
         // Businesses without a rating/review count are listed last.
         return match ($this->sort) {
+            'lead_score' => $query->orderByDesc(LeadScore::select('score')->whereColumn('lead_scores.business_id', 'businesses.id'))->orderBy('name'),
             'name' => $query->orderBy('name')->orderBy('id'),
             'name_desc' => $query->orderByDesc('name')->orderByDesc('id'),
             'rating' => $query->orderByRaw('rating IS NULL')->orderByDesc('rating')->orderBy('name'),

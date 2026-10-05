@@ -4,7 +4,9 @@
     <table class="min-w-full divide-y divide-slate-200 text-sm">
         <thead class="bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase">
             <tr>
+                <th class="px-4 py-3">Lead</th>
                 <th class="px-4 py-3">Business</th>
+                <th class="px-4 py-3">Top opportunity</th>
                 <th class="px-4 py-3">Category</th>
                 <th class="px-4 py-3">City</th>
                 <th class="px-4 py-3">Phone</th>
@@ -16,11 +18,26 @@
         </thead>
         <tbody class="divide-y divide-slate-100">
             @forelse ($businesses as $business)
+                @php($topOpportunity = $business->opportunities->sortByDesc(fn ($opportunity) => $opportunity->priority->rank())->first())
                 <tr wire:key="business-{{ $business->id }}" class="hover:bg-slate-50">
+                    <td class="px-4 py-3"><x-lead-score :score="$business->leadScore" /></td>
                     <td class="max-w-xs px-4 py-3">
                         <a href="{{ route('businesses.show', $business) }}" class="font-medium text-slate-900 hover:text-indigo-600">{{ $business->name }}</a>
                         @if ($business->alternate_name)
                             <div class="truncate text-xs text-slate-500">{{ $business->alternate_name }}</div>
+                        @endif
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        @if ($topOpportunity)
+                            <span class="inline-flex items-center gap-1 text-slate-700" title="{{ $topOpportunity->priority->label() }} priority">
+                                <span aria-hidden="true">{{ match ($topOpportunity->priority) { \App\Enums\OpportunityPriority::High => '🔥', \App\Enums\OpportunityPriority::Medium => '🟠', default => '🟡' } }}</span>
+                                {{ $topOpportunity->type->label() }}
+                            </span>
+                            @if ($business->opportunities->count() > 1)
+                                <span class="text-xs text-slate-400">+{{ $business->opportunities->count() - 1 }}</span>
+                            @endif
+                        @else
+                            <span class="text-slate-400">—</span>
                         @endif
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-slate-600">
@@ -67,7 +84,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="px-4 py-10 text-center text-slate-500">{{ $empty }}</td>
+                    <td colspan="10" class="px-4 py-10 text-center text-slate-500">{{ $empty }}</td>
                 </tr>
             @endforelse
         </tbody>

@@ -2,7 +2,10 @@
 
 namespace App\Livewire\Businesses;
 
+use App\Auditing\WebsiteAuditScheduler;
+use App\Intelligence\BusinessEvaluator;
 use App\Models\Business;
+use App\Models\Opportunity;
 use Illuminate\View\View;
 use Livewire\Component;
 
@@ -14,14 +17,46 @@ class Show extends Component
     {
         $this->authorize('view', $business);
 
-        $this->business = $business->load([
-            'sources' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('id'),
-            'campaigns' => fn ($query) => $query->latest(),
-        ]);
+        $this->business = $business;
     }
 
-    public function render(): View
+    /**
+     * Re-audit the website now (bypassing freshness), or, for a business
+     * without a website, re-evaluate it immediately.
+     */
+    public function analyze(WebsiteAuditScheduler $scheduler, BusinessEvaluator $evaluator): void
     {
-        return view('livewire.businesses.show')->title($this->business->name);
+        $this->business->refresh();
+
+        $this->authorize('analyze', $this->business);
+
+        $audit = $scheduler->queue($this->business, force: true);
+
+        if ($this->business->website === null) {
+            $evaluator->evaluate($this->business);
+            session()->flash('status', 'Business re-evaluated.');
+        } else {
+            session()->flash('status', $audit !== null ? 'Website audit queued.' : 'An audit of this website is already queued or running.');
+        }
+
+        $this->redirectRoute('businesses.show', $this->business);
+    }
+
+    public function render(BusinessEvaluator $evaluator): View
+    {
+        $this->business->load([
+            'sources' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('id'),
+            'campaigns' => fn ($query) => $query->latest(),
+            'opportunities',
+            'leadScore',
+        ]);
+
+        return view('livewire.businesses.show', [
+            'currentAudit' => $this->business->websiteAudits()->latest('id')->first(),
+            'audit' => $evaluator->relevantAudit($this->business),
+            'opportunities' => $this->business->opportunities
+                ->sortByDesc(fn (Opportunity $opportunity): int => $opportunity->priority->rank())
+                ->values(),
+        ])->title($this->business->name);
     }
 }

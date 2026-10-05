@@ -70,7 +70,12 @@ class RunCampaignDiscovery implements ShouldBeUnique, ShouldQueue
 
             // fail() marks the queued job as failed and then calls failed().
             $this->job !== null ? $this->fail($e) : $this->failed($e);
+
+            return;
         }
+
+        // Follow-up work must never turn a completed discovery into a failure.
+        rescue(fn () => QueueCampaignAudits::dispatch($this->campaign));
     }
 
     /**

@@ -49,6 +49,15 @@ final class Text
      */
     public static function matchKey(string $value): string
     {
+        return mb_substr(self::searchable($value), 0, 255);
+    }
+
+    /**
+     * Normalize any amount of text the same way as matchKey(), without the
+     * length limit, for keyword search in page content.
+     */
+    public static function searchable(string $value): string
+    {
         $value = mb_strtolower(self::asciiDigits(mb_scrub($value, 'UTF-8')));
 
         if (class_exists(Normalizer::class)) {
@@ -60,6 +69,6 @@ final class Text
         $value = strtr($value, self::ARABIC_LETTER_VARIANTS);
         $value = (string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', $value);
 
-        return mb_substr(trim($value), 0, 255);
+        return trim($value);
     }
 }

@@ -1,6 +1,8 @@
 <div class="space-y-6">
     @if ($campaign->status->isActive())
         <div wire:poll.3s></div>
+    @elseif (($auditCounts['pending'] ?? 0) + ($auditCounts['running'] ?? 0) > 0)
+        <div wire:poll.10s></div>
     @endif
 
     <div>
@@ -72,6 +74,16 @@
         <x-stat label="Last completed" :value="$campaign->completed_at?->diffForHumans() ?? '—'"
                 :hint="$campaign->completed_at && $campaign->started_at ? 'Took '.$campaign->started_at->diffForHumans($campaign->completed_at, true) : null" />
     </dl>
+
+    @if ($auditCounts->isNotEmpty())
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm text-slate-600 shadow-sm">
+            <span class="font-semibold text-slate-900">Website audits</span>
+            <span><span class="font-medium tabular-nums text-slate-900">{{ $auditCounts['completed'] ?? 0 }}</span> analyzed</span>
+            <span><span class="font-medium tabular-nums text-slate-900">{{ ($auditCounts['pending'] ?? 0) + ($auditCounts['running'] ?? 0) }}</span> queued</span>
+            <span><span class="font-medium tabular-nums text-slate-900">{{ $auditCounts['failed'] ?? 0 }}</span> could not be analyzed</span>
+            <span><span class="font-medium tabular-nums text-slate-900">{{ $auditCounts['not_applicable'] ?? 0 }}</span> without a website</span>
+        </div>
+    @endif
 
     <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <h2 class="border-b border-slate-200 px-5 py-3 text-base font-semibold">Search settings</h2>

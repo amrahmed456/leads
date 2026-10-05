@@ -76,6 +76,26 @@
             </div>
 
             <div>
+                <label for="opportunity" class="{{ $label }}">Opportunity</label>
+                <select id="opportunity" wire:model.live="opportunity" class="{{ $control }}">
+                    <option value="">Any opportunity</option>
+                    @foreach ($opportunityTypes as $value => $opportunityLabel)
+                        <option value="{{ $value }}">{{ $opportunityLabel }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label for="grade" class="{{ $label }}">Lead grade</label>
+                <select id="grade" wire:model.live="grade" class="{{ $control }}">
+                    <option value="">Any grade</option>
+                    @foreach ($grades as $gradeOption)
+                        <option value="{{ $gradeOption->value }}">{{ $gradeOption->label() }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
                 <label for="sort" class="{{ $label }}">Sort by</label>
                 <select id="sort" wire:model.live="sort" class="{{ $control }}">
                     @foreach ($sorts as $value => $sortLabel)
@@ -92,7 +112,7 @@
         @endif
     </div>
 
-    <div wire:loading.class="opacity-60" wire:target="search, campaign, category, city, provider, website, phone, sort, clearFilters, gotoPage, nextPage, previousPage">
+    <div wire:loading.class="opacity-60" wire:target="search, campaign, category, city, provider, website, phone, opportunity, grade, sort, clearFilters, gotoPage, nextPage, previousPage">
         <x-business-table :businesses="$businesses" :empty="$filtered ? 'No businesses match these filters.' : 'No businesses discovered yet. Start a search campaign to find some.'" />
     </div>
 

@@ -1,5 +1,5 @@
 <div class="space-y-8">
-    @if ($activeCampaignCount > 0)
+    @if ($activeCampaignCount > 0 || $activeAuditCount > 0)
         <div wire:poll.10s></div>
     @endif
 
@@ -11,7 +11,9 @@
     <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <x-stat label="Businesses discovered" :value="$businessCount" :href="route('businesses.index')" />
         <x-stat label="Search campaigns" :value="$campaignCount" :href="route('campaigns.index')" />
-        <x-stat label="Campaigns in progress" :value="$activeCampaignCount" hint="Queued or running" />
+        <x-stat label="Hot leads" :value="$hotLeadCount"
+                :href="route('businesses.index', ['grade' => 'hot', 'sort' => 'lead_score'])"
+                :hint="collect([$activeCampaignCount ? $activeCampaignCount.' campaign(s) running' : null, $activeAuditCount ? $activeAuditCount.' website audit(s) queued' : null])->filter()->implode(' · ') ?: 'Lead score 70 or higher'" />
         <x-stat label="Businesses without a website" :value="$withoutWebsiteCount"
                 :href="route('businesses.index', ['website' => 'without'])"
                 :hint="$businessCount > 0 ? round($withoutWebsiteCount / $businessCount * 100).'% of all businesses' : null" />
@@ -56,6 +58,15 @@
                 </tbody>
             </table>
         </div>
+    </section>
+
+    <section>
+        <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-base font-semibold">Top leads</h2>
+            <a href="{{ route('businesses.index', ['sort' => 'lead_score']) }}" class="text-sm text-indigo-600 hover:underline">View all</a>
+        </div>
+
+        <x-business-table :businesses="$topLeads" empty="No businesses scored yet. Scores appear after a campaign completes." />
     </section>
 
     <section>

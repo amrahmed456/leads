@@ -4,6 +4,7 @@ namespace Tests\Feature\Discovery;
 
 use App\Discovery\CampaignDiscoveryService;
 use App\Enums\CampaignStatus;
+use App\Jobs\QueueCampaignAudits;
 use App\Jobs\RunCampaignDiscovery;
 use App\Models\Business;
 use App\Models\BusinessSource;
@@ -13,6 +14,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class CampaignDiscoveryWorkflowTest extends TestCase
@@ -25,6 +27,7 @@ class CampaignDiscoveryWorkflowTest extends TestCase
 
     public function test_discovery_geocodes_the_city_and_stores_normalized_deduplicated_businesses(): void
     {
+        Queue::fake([QueueCampaignAudits::class]);
         Http::fake([
             self::NOMINATIM => Http::response($this->fixture('nominatim-riyadh.json')),
             self::OVERPASS => Http::response($this->fixture('overpass-riyadh-restaurants.json')),
@@ -75,10 +78,13 @@ class CampaignDiscoveryWorkflowTest extends TestCase
         $this->assertNull($burger->phone);
 
         $this->assertSame('+966112223333', Business::where('name', 'Olaya Food Court')->sole()->phone);
+
+        Queue::assertPushed(QueueCampaignAudits::class, fn (QueueCampaignAudits $job) => $job->campaign->is($campaign));
     }
 
     public function test_an_overlapping_campaign_reuses_existing_businesses(): void
     {
+        Queue::fake([QueueCampaignAudits::class]);
         Http::fake([self::OVERPASS => Http::response($this->fixture('overpass-riyadh-restaurants.json'))]);
 
         $first = SearchCampaign::factory()->create();
@@ -99,6 +105,7 @@ class CampaignDiscoveryWorkflowTest extends TestCase
 
     public function test_running_a_campaign_again_does_not_duplicate_anything(): void
     {
+        Queue::fake([QueueCampaignAudits::class]);
         Http::fake([self::OVERPASS => Http::response($this->fixture('overpass-riyadh-restaurants.json'))]);
 
         $campaign = SearchCampaign::factory()->create();
@@ -113,6 +120,7 @@ class CampaignDiscoveryWorkflowTest extends TestCase
 
     public function test_a_failed_provider_request_fails_the_campaign_and_is_logged(): void
     {
+        Queue::fake([QueueCampaignAudits::class]);
         Event::fake([MessageLogged::class]);
         Http::fake([self::OVERPASS => Http::response('Service Unavailable', 503)]);
 
@@ -129,6 +137,7 @@ class CampaignDiscoveryWorkflowTest extends TestCase
             && $log->message === 'Campaign discovery failed.'
             && $log->context['campaign_id'] === $campaign->id
             && str_contains($log->context['message'], 'HTTP 503'));
+        Queue::assertNotPushed(QueueCampaignAudits::class);
     }
 
     public function test_an_unknown_location_fails_the_campaign_without_querying_the_provider(): void

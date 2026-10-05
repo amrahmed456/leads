@@ -151,6 +151,22 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Website audits: temporary and permanent failures, batch summaries
+        // (storage/logs/audits-*.log) unless LOG_AUDITS_STACK says otherwise.
+        'audits' => [
+            'driver' => 'stack',
+            'channels' => explode(',', (string) env('LOG_AUDITS_STACK', 'audits_file')),
+            'ignore_exceptions' => false,
+        ],
+
+        'audits_file' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/audits.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'max_files' => env('LOG_DAILY_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];

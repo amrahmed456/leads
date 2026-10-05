@@ -3,10 +3,12 @@
 namespace Tests\Feature\Console;
 
 use App\Enums\CampaignStatus;
+use App\Jobs\QueueCampaignAudits;
 use App\Models\Business;
 use App\Models\SearchCampaign;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class DiscoveryCommandsTest extends TestCase
@@ -15,6 +17,7 @@ class DiscoveryCommandsTest extends TestCase
 
     public function test_discovery_can_be_run_from_the_command_line(): void
     {
+        Queue::fake([QueueCampaignAudits::class]);
         Http::fake(['https://overpass.test/*' => Http::response($this->fixture('overpass-riyadh-restaurants.json'))]);
         $campaign = SearchCampaign::factory()->create();
 

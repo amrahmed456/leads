@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -77,6 +78,38 @@ class Business extends Model
     public function sources(): HasMany
     {
         return $this->hasMany(BusinessSource::class);
+    }
+
+    /**
+     * @return HasMany<WebsiteAudit, $this>
+     */
+    public function websiteAudits(): HasMany
+    {
+        return $this->hasMany(WebsiteAudit::class);
+    }
+
+    /**
+     * @return HasOne<WebsiteAudit, $this>
+     */
+    public function latestWebsiteAudit(): HasOne
+    {
+        return $this->hasOne(WebsiteAudit::class)->latestOfMany();
+    }
+
+    /**
+     * @return HasMany<Opportunity, $this>
+     */
+    public function opportunities(): HasMany
+    {
+        return $this->hasMany(Opportunity::class);
+    }
+
+    /**
+     * @return HasOne<LeadScore, $this>
+     */
+    public function leadScore(): HasOne
+    {
+        return $this->hasOne(LeadScore::class);
     }
 
     /**

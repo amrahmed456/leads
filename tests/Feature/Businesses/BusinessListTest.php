@@ -3,8 +3,12 @@
 namespace Tests\Feature\Businesses;
 
 use App\Enums\BusinessCategory;
+use App\Enums\LeadGrade;
+use App\Enums\OpportunityType;
 use App\Livewire\Businesses\Index;
 use App\Models\Business;
+use App\Models\LeadScore;
+use App\Models\Opportunity;
 use App\Models\SearchCampaign;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -83,6 +87,24 @@ class BusinessListTest extends TestCase
             ->set('category', 'nope')
             ->set('campaign', '1 OR 1=1')
             ->set('sort', 'id; DROP TABLE businesses'));
+    }
+
+    public function test_sorting_by_lead_score_lists_unscored_businesses_last(): void
+    {
+        LeadScore::factory()->for($this->smile)->create(['score' => 40, 'grade' => LeadGrade::Cold]);
+        LeadScore::factory()->for($this->reef)->create(['score' => 75, 'grade' => LeadGrade::Hot]);
+
+        $this->assertListed(['مطعم الريف', 'Smile Dental', 'Kudu'], $this->list()->set('sort', 'lead_score'), ordered: true);
+        $this->assertListed(['مطعم الريف'], $this->list()->set('grade', 'hot'));
+    }
+
+    public function test_filters_by_opportunity(): void
+    {
+        Opportunity::factory()->for($this->reef)->create(['type' => OpportunityType::WebsiteMissing]);
+        Opportunity::factory()->for($this->kudu)->create(['type' => OpportunityType::OnlineOrdering]);
+
+        $this->assertListed(['مطعم الريف'], $this->list()->set('opportunity', 'website_missing'));
+        $this->assertListed(['Kudu', 'Smile Dental', 'مطعم الريف'], $this->list()->set('opportunity', 'not-a-type'));
     }
 
     public function test_business_details_show_all_available_information(): void

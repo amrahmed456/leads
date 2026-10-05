@@ -84,6 +84,30 @@ final class UrlNormalizer
             : null;
     }
 
+    /**
+     * Resolve a link or redirect target against the URL of the page it
+     * appears on. Targets with their own scheme (https:, tel:, ...) are
+     * returned unchanged.
+     */
+    public static function resolveReference(string $base, string $reference): string
+    {
+        if (preg_match('#^[a-z][a-z0-9+.\-]*:#i', $reference)) {
+            return $reference;
+        }
+
+        $parts = parse_url($base) ?: [];
+        $scheme = $parts['scheme'] ?? 'https';
+        $origin = $scheme.'://'.($parts['host'] ?? '').(isset($parts['port']) ? ':'.$parts['port'] : '');
+        $path = $parts['path'] ?? '/';
+
+        return match (true) {
+            str_starts_with($reference, '//') => $scheme.':'.$reference,
+            str_starts_with($reference, '/') => $origin.$reference,
+            str_starts_with($reference, '?'), str_starts_with($reference, '#') => $origin.$path.$reference,
+            default => $origin.preg_replace('#/[^/]*$#', '/', $path).$reference,
+        };
+    }
+
     private function isValidHost(string $host): bool
     {
         if ($host === '' || str_contains($host, '..') || str_starts_with($host, '.') || str_starts_with($host, '-')) {
