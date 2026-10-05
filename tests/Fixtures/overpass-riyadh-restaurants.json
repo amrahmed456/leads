@@ -1,0 +1,91 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.7 375dc00a",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-05T08:00:00Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+    {
+      "type": "node",
+      "id": 1001,
+      "lat": 24.6898413,
+      "lon": 46.6864482,
+      "tags": {
+        "amenity": "restaurant",
+        "name": "مطعم الريف",
+        "name:en": "Al Reef Restaurant",
+        "cuisine": "regional",
+        "phone": "011 234 5678",
+        "website": "www.alreef.sa/?utm_source=osm&menu=1",
+        "email": "Info@AlReef.sa",
+        "opening_hours": "Mo-Su 12:00-24:00",
+        "addr:housenumber": "12",
+        "addr:street": "Olaya Street",
+        "addr:district": "Al Olaya",
+        "addr:city": "الرياض",
+        "addr:postcode": "12211"
+      }
+    },
+    {
+      "type": "way",
+      "id": 2002,
+      "center": { "lat": 24.6899, "lon": 46.6865 },
+      "tags": {
+        "amenity": "restaurant",
+        "name": "مطعم الريف",
+        "phone": "+966 50 123 4567",
+        "building": "yes"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1003,
+      "lat": 24.6900265,
+      "lon": 46.6863838,
+      "tags": { "amenity": "fast_food" }
+    },
+    {
+      "type": "node",
+      "id": 1004,
+      "lat": 24.6878167,
+      "lon": 46.6878047,
+      "tags": {
+        "amenity": "fast_food",
+        "name": "Burger Spot",
+        "website": "https://instagram.com/burgerspot.sa",
+        "contact:whatsapp": "٠٥٥٥١٢٣٤٥٦"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1005,
+      "lat": 24.6911,
+      "lon": 46.6841,
+      "tags": { "shop": "bakery", "name": "Cafe Bread House" }
+    },
+    {
+      "type": "way",
+      "id": 2006,
+      "center": { "lat": 24.6905, "lon": 46.6850 },
+      "tags": { "amenity": "parking", "name": "Restaurant Parking" }
+    },
+    {
+      "type": "node",
+      "id": 1007,
+      "lon": 46.6851,
+      "tags": { "amenity": "restaurant", "name": "No Coordinates Grill" }
+    },
+    "this element is not an object",
+    {
+      "type": "relation",
+      "id": 3008,
+      "center": { "lat": 24.6923, "lon": 46.6889 },
+      "tags": {
+        "amenity": "food_court",
+        "name": "Olaya Food Court",
+        "phone": "not a phone; +966 11 222 3333"
+      }
+    }
+  ]
+}

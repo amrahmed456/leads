@@ -1,0 +1,18 @@
+[
+  {
+    "place_id": 258437418,
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "osm_type": "relation",
+    "osm_id": 3672049,
+    "lat": "24.6319692",
+    "lon": "46.7150648",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 16,
+    "importance": 0.73,
+    "addresstype": "city",
+    "name": "Riyadh",
+    "display_name": "Riyadh, Riyadh Region, Saudi Arabia",
+    "boundingbox": ["24.2939113", "25.1564724", "46.2981033", "47.0157005"]
+  }
+]
