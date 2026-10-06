@@ -1,6 +1,9 @@
 <?php
 
+use App\Discovery\Providers\AllThePlaces\AllThePlacesProvider;
+use App\Discovery\Providers\Geoapify\GeoapifyProvider;
 use App\Discovery\Providers\OpenStreetMap\OpenStreetMapProvider;
+use App\Discovery\Providers\Overture\OvertureProvider;
 
 return [
 
@@ -102,6 +105,26 @@ return [
             'query_timeout' => (int) env('OSM_OVERPASS_TIMEOUT', 120),
             // Hard cap on the number of elements returned for one campaign run.
             'max_results' => (int) env('OSM_MAX_RESULTS', 3000),
+        ],
+
+        // Searches imported Overture extracts locally (config/sources.php "overture").
+        'overture' => [
+            'class' => OvertureProvider::class,
+            'label' => 'Overture Places',
+            'max_results' => (int) env('OVERTURE_MAX_RESULTS', 3000),
+        ],
+
+        // OSM-derived: never independent confirmation of OpenStreetMap (config/sources.php "geoapify").
+        'geoapify' => [
+            'class' => GeoapifyProvider::class,
+            'label' => 'Geoapify Places',
+        ],
+
+        // Branches of brands with a synced spider, searched locally.
+        'alltheplaces' => [
+            'class' => AllThePlacesProvider::class,
+            'label' => 'AllThePlaces',
+            'max_results' => (int) env('ATP_MAX_RESULTS', 3000),
         ],
 
     ],

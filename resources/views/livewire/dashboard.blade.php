@@ -9,15 +9,48 @@
     </div>
 
     <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <x-stat label="Businesses discovered" :value="$businessCount" :href="route('businesses.index')" />
+        <x-stat label="Businesses discovered" :value="$businessCount" :href="route('businesses.index', ['hide_disqualified' => 0, 'sort' => 'newest'])"
+                :hint="number_format($withWebsiteCount).' with a website · '.number_format($withoutWebsiteCount).' without'" />
+        <x-stat label="Hot leads" :value="$statusCounts['hot'] ?? 0"
+                :href="route('businesses.index', ['status' => 'hot'])"
+                :hint="collect([$activeCampaignCount ? $activeCampaignCount.' campaign(s) running' : null, $activeAuditCount ? $activeAuditCount.' website audit(s) queued' : null])->filter()->implode(' · ') ?: 'Meet every HOT requirement'" />
+        <x-stat label="Warm leads" :value="$statusCounts['warm'] ?? 0" :href="route('businesses.index', ['status' => 'warm'])" />
+        <x-stat label="Review required" :value="$statusCounts['review_required'] ?? 0" :href="route('businesses.index', ['status' => 'review_required'])" hint="Uncertain identity or chain hints" />
+        <x-stat label="Low" :value="$statusCounts['low'] ?? 0" :href="route('businesses.index', ['status' => 'low'])" />
+        <x-stat label="Disqualified" :value="$statusCounts['disqualified'] ?? 0" :href="route('businesses.index', ['status' => 'disqualified', 'hide_disqualified' => 0])" />
+        <x-stat label="Chains & enterprises rejected" :value="$rejectedChainCount"
+                :href="route('businesses.index', ['entity' => 'chain', 'status' => 'disqualified', 'hide_disqualified' => 0])"
+                hint="False hot leads avoided: recognized brands, chains and corporates" />
         <x-stat label="Search campaigns" :value="$campaignCount" :href="route('campaigns.index')" />
-        <x-stat label="Hot leads" :value="$hotLeadCount"
-                :href="route('businesses.index', ['grade' => 'hot', 'sort' => 'lead_score'])"
-                :hint="collect([$activeCampaignCount ? $activeCampaignCount.' campaign(s) running' : null, $activeAuditCount ? $activeAuditCount.' website audit(s) queued' : null])->filter()->implode(' · ') ?: 'Lead score 70 or higher'" />
-        <x-stat label="Businesses without a website" :value="$withoutWebsiteCount"
-                :href="route('businesses.index', ['website' => 'without'])"
-                :hint="$businessCount > 0 ? round($withoutWebsiteCount / $businessCount * 100).'% of all businesses' : null" />
     </dl>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+        <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <h2 class="border-b border-slate-200 px-5 py-3 text-base font-semibold">Entity types</h2>
+            <ul class="divide-y divide-slate-100 text-sm">
+                @foreach (\App\Enums\EntityType::cases() as $type)
+                    @continue(($entityCounts[$type->value] ?? 0) === 0 && $type === \App\Enums\EntityType::Unknown)
+                    <li class="flex items-center justify-between px-5 py-2">
+                        <a href="{{ route('businesses.index', ['entity' => $type->value, 'hide_disqualified' => 0]) }}" class="hover:text-indigo-600"><x-entity-type :type="$type" /></a>
+                        <span class="tabular-nums text-slate-700">{{ number_format($entityCounts[$type->value] ?? 0) }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+
+        <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <h2 class="border-b border-slate-200 px-5 py-3 text-base font-semibold">Source contribution</h2>
+            <ul class="divide-y divide-slate-100 text-sm">
+                @foreach ($sourceContribution as $source)
+                    <li class="flex items-center justify-between gap-3 px-5 py-2">
+                        <span>{{ $source['label'] }} <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{{ $source['group'] }}</span></span>
+                        <span class="tabular-nums text-slate-700">{{ number_format($source['businesses']) }} <span class="text-xs text-slate-400">businesses</span></span>
+                    </li>
+                @endforeach
+            </ul>
+            <p class="border-t border-slate-100 px-5 py-2 text-xs text-slate-500">Sources in the same group share an underlying dataset and never count as independent confirmation.</p>
+        </section>
+    </div>
 
     <section>
         <div class="mb-3 flex items-center justify-between">
@@ -62,8 +95,8 @@
 
     <section>
         <div class="mb-3 flex items-center justify-between">
-            <h2 class="text-base font-semibold">Top leads</h2>
-            <a href="{{ route('businesses.index', ['sort' => 'lead_score']) }}" class="text-sm text-indigo-600 hover:underline">View all</a>
+            <h2 class="text-base font-semibold">Top hot &amp; warm leads</h2>
+            <a href="{{ route('businesses.index') }}" class="text-sm text-indigo-600 hover:underline">View all</a>
         </div>
 
         <x-business-table :businesses="$topLeads" empty="No businesses scored yet. Scores appear after a campaign completes." />

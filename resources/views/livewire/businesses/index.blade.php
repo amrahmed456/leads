@@ -17,11 +17,42 @@
             </div>
 
             <div>
-                <label for="campaign" class="{{ $label }}">Campaign</label>
-                <select id="campaign" wire:model.live="campaign" class="{{ $control }}">
-                    <option value="">All campaigns</option>
-                    @foreach ($campaigns as $id => $campaignName)
-                        <option value="{{ $id }}">{{ $campaignName }}</option>
+                <label for="status" class="{{ $label }}">Lead eligibility</label>
+                <select id="status" wire:model.live="status" class="{{ $control }}">
+                    <option value="">Any status</option>
+                    @foreach ($statuses as $value => $statusLabel)
+                        <option value="{{ $value }}">{{ $statusLabel }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label for="sort" class="{{ $label }}">Sort by</label>
+                <select id="sort" wire:model.live="sort" class="{{ $control }}">
+                    @foreach ($sorts as $value => $sortLabel)
+                        <option value="{{ $value }}">{{ $sortLabel }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label for="entity" class="{{ $label }}">Entity type</label>
+                <select id="entity" wire:model.live="entity" class="{{ $control }}">
+                    <option value="">Any entity</option>
+                    <option value="independent">Independent / local (all)</option>
+                    <option value="chain">Chains &amp; corporate (all)</option>
+                    @foreach ($entityTypes as $value => $entityLabel)
+                        <option value="{{ $value }}">{{ $entityLabel }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label for="brand" class="{{ $label }}">Brand</label>
+                <select id="brand" wire:model.live="brand" class="{{ $control }}">
+                    <option value="">Any brand</option>
+                    @foreach ($brands as $id => $brandName)
+                        <option value="{{ $id }}">{{ $brandName }}</option>
                     @endforeach
                 </select>
             </div>
@@ -37,19 +68,43 @@
             </div>
 
             <div>
-                <label for="city" class="{{ $label }}">City</label>
-                <select id="city" wire:model.live="city" class="{{ $control }}">
-                    <option value="">All cities</option>
-                    @foreach ($cities as $cityOption)
-                        <option value="{{ $cityOption }}">{{ $cityOption }}</option>
+                <label for="opportunity" class="{{ $label }}">Opportunity</label>
+                <select id="opportunity" wire:model.live="opportunity" class="{{ $control }}">
+                    <option value="">Any opportunity</option>
+                    @foreach ($opportunityTypes as $value => $opportunityLabel)
+                        <option value="{{ $value }}">{{ $opportunityLabel }}</option>
                     @endforeach
                 </select>
             </div>
 
+            <div class="grid grid-cols-3 gap-3 sm:col-span-2">
+                @foreach (['minConfidence' => 'Min. confidence', 'minFit' => 'Min. fit', 'minOpportunity' => 'Min. opportunity'] as $property => $minimumLabel)
+                    <div>
+                        <label for="{{ $property }}" class="{{ $label }}">{{ $minimumLabel }}</label>
+                        <select id="{{ $property }}" wire:model.live="{{ $property }}" class="{{ $control }}">
+                            <option value="">Any</option>
+                            @foreach ([25, 35, 45, 60, 75] as $minimum)
+                                <option value="{{ $minimum }}">{{ $minimum }}+</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endforeach
+            </div>
+
             <div>
-                <label for="provider" class="{{ $label }}">Provider</label>
+                <label for="minEvidence" class="{{ $label }}">Independent evidence</label>
+                <select id="minEvidence" wire:model.live="minEvidence" class="{{ $control }}">
+                    <option value="">Any</option>
+                    <option value="1">1+ source group</option>
+                    <option value="2">2+ source groups</option>
+                    <option value="3">3+ source groups</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="provider" class="{{ $label }}">Source</label>
                 <select id="provider" wire:model.live="provider" class="{{ $control }}">
-                    <option value="">All providers</option>
+                    <option value="">All sources</option>
                     @foreach ($providers as $key => $providerLabel)
                         <option value="{{ $key }}">{{ $providerLabel }}</option>
                     @endforeach
@@ -76,43 +131,48 @@
             </div>
 
             <div>
-                <label for="opportunity" class="{{ $label }}">Opportunity</label>
-                <select id="opportunity" wire:model.live="opportunity" class="{{ $control }}">
-                    <option value="">Any opportunity</option>
-                    @foreach ($opportunityTypes as $value => $opportunityLabel)
-                        <option value="{{ $value }}">{{ $opportunityLabel }}</option>
+                <label for="feature" class="{{ $label }}">Website features</label>
+                <select id="feature" wire:model.live="feature" class="{{ $control }}">
+                    <option value="">Any</option>
+                    @foreach ($features as $value => $featureLabel)
+                        <option value="{{ $value }}">{{ $featureLabel }}</option>
                     @endforeach
                 </select>
             </div>
 
             <div>
-                <label for="grade" class="{{ $label }}">Lead grade</label>
-                <select id="grade" wire:model.live="grade" class="{{ $control }}">
-                    <option value="">Any grade</option>
-                    @foreach ($grades as $gradeOption)
-                        <option value="{{ $gradeOption->value }}">{{ $gradeOption->label() }}</option>
+                <label for="campaign" class="{{ $label }}">Campaign</label>
+                <select id="campaign" wire:model.live="campaign" class="{{ $control }}">
+                    <option value="">All campaigns</option>
+                    @foreach ($campaigns as $id => $campaignName)
+                        <option value="{{ $id }}">{{ $campaignName }}</option>
                     @endforeach
                 </select>
             </div>
 
             <div>
-                <label for="sort" class="{{ $label }}">Sort by</label>
-                <select id="sort" wire:model.live="sort" class="{{ $control }}">
-                    @foreach ($sorts as $value => $sortLabel)
-                        <option value="{{ $value }}">{{ $sortLabel }}</option>
+                <label for="city" class="{{ $label }}">City</label>
+                <select id="city" wire:model.live="city" class="{{ $control }}">
+                    <option value="">All cities</option>
+                    @foreach ($cities as $cityOption)
+                        <option value="{{ $cityOption }}">{{ $cityOption }}</option>
                     @endforeach
                 </select>
             </div>
         </div>
 
-        @if ($filtered)
-            <div class="mt-3 text-right">
-                <button type="button" wire:click="clearFilters" class="text-sm text-slate-500 hover:text-slate-800">Clear filters</button>
-            </div>
-        @endif
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" wire:model.live="hideDisqualified" class="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                Hide disqualified entities (chains, enterprises, government…)
+            </label>
+            @if ($filtered)
+                <button type="button" wire:click="clearFilters" class="text-sm text-slate-500 hover:text-slate-800">Reset filters</button>
+            @endif
+        </div>
     </div>
 
-    <div wire:loading.class="opacity-60" wire:target="search, campaign, category, city, provider, website, phone, opportunity, grade, sort, clearFilters, gotoPage, nextPage, previousPage">
+    <div wire:loading.class="opacity-60" wire:target="search, campaign, category, city, provider, website, phone, opportunity, status, entity, brand, minConfidence, minFit, minOpportunity, minEvidence, feature, hideDisqualified, sort, clearFilters, gotoPage, nextPage, previousPage">
         <x-business-table :businesses="$businesses" :empty="$filtered ? 'No businesses match these filters.' : 'No businesses discovered yet. Start a search campaign to find some.'" />
     </div>
 

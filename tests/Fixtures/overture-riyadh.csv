@@ -1,0 +1,4 @@
+id,names.primary,categories.primary,confidence,lat,lon,websites,brand.names.primary,brand.wikidata
+csv-1,Olaya Florist,florist,0.82,24.69,46.68,https://olayaflowers.sa,,
+csv-2,"Kudu, Olaya",fast_food_restaurant,0.9,24.691,46.681,,Kudu,Q6442938
+csv-3,Broken Row,restaurant

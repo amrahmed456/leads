@@ -1,0 +1,62 @@
+{
+  "type": "FeatureCollection",
+  "name": "riyadh-places",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [46.67535, 24.71365]},
+      "properties": {
+        "id": "08f2a1-kfc-king-fahd",
+        "names": {"primary": "KFC - King Fahd Road", "common": [{"language": "ar", "value": "كنتاكي"}]},
+        "categories": {"primary": "fast_food_restaurant", "alternate": ["chicken_restaurant"]},
+        "confidence": 0.96,
+        "operating_status": "open",
+        "websites": ["https://www.kfc.com.sa"],
+        "phones": ["+966920000000"],
+        "brand": {"wikidata": "Q524757", "names": {"primary": "KFC"}},
+        "addresses": [{"freeform": "King Fahd Road", "locality": "Riyadh", "country": "SA"}],
+        "sources": [{"property": "", "dataset": "meta", "record_id": "1234"}, {"property": "/properties/confidence", "dataset": "Microsoft", "record_id": "abcd"}]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [46.6801, 24.6905]},
+      "properties": {
+        "id": "08f2a1-reef-cafe",
+        "names": "{\"primary\": \"Reef Corner Cafe\"}",
+        "categories": "{\"primary\": \"coffee_shop\"}",
+        "confidence": 0.71,
+        "socials": ["https://www.instagram.com/reefcorner"],
+        "sources": [{"dataset": "meta", "record_id": "5678"}]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [46.70, 24.70]},
+      "properties": {"id": "08f2a1-junk", "names": {"primary": "Unverified Place"}, "categories": {"primary": "restaurant"}, "confidence": 0.12}
+    },
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {"id": "08f2a1-no-geometry", "names": {"primary": "Nowhere Grill"}, "confidence": 0.9}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [46.6809, 24.6911]},
+      "properties": {
+        "id": "08f2a1-atp-sourced",
+        "names": {"primary": "Al Baik"},
+        "taxonomy": {"primary": "fast_food_restaurant", "hierarchy": ["food_and_drink", "restaurant", "fast_food_restaurant"]},
+        "basic_category": "restaurant",
+        "confidence": 0.88,
+        "brand": {"wikidata": "Q2649768", "names": {"primary": "Al Baik"}},
+        "sources": [{"dataset": "AllThePlaces", "record_id": "albaik/77"}]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [55.27, 25.20]},
+      "properties": {"id": "08f2a1-dubai", "names": {"primary": "Dubai Diner"}, "categories": {"primary": "restaurant"}, "confidence": 0.9}
+    }
+  ]
+}

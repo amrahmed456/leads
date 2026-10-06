@@ -53,6 +53,8 @@ class CreateSearchCampaignTest extends TestCase
         $campaign = SearchCampaign::sole();
         $this->assertSame('Riyadh Restaurants', $campaign->name);
         $this->assertSame('openstreetmap', $campaign->provider);
+        $this->assertSame(['openstreetmap', 'overture'], $campaign->sources, 'The free balanced preset, minus Geoapify without an API key.');
+        $this->assertSame('free_balanced', $campaign->preset);
         $this->assertSame(Country::SaudiArabia, $campaign->country_code);
         $this->assertSame('Riyadh', $campaign->city);
         $this->assertSame(BusinessCategory::Restaurant, $campaign->category);
@@ -90,18 +92,40 @@ class CreateSearchCampaignTest extends TestCase
             ->set('country', 'EG')
             ->set('city', '')
             ->set('category', 'spaceships')
-            ->set('provider', 'google_places')
+            ->set('sources', ['openstreetmap', 'google_places'])
             ->set('keywords', 'pizza|.*')
             ->set('latitude', '95')
             ->set('radiusKm', '500')
             ->call('save')
             ->assertHasErrors([
-                'country', 'city', 'category', 'provider', 'keywords',
+                'country', 'city', 'category', 'sources.1', 'keywords',
                 'latitude' => 'between', 'longitude' => 'required_with', 'radiusKm' => 'max',
             ]);
 
         $this->assertSame(0, SearchCampaign::count());
         Queue::assertNothingPushed();
+    }
+
+    public function test_choosing_a_preset_selects_its_available_sources(): void
+    {
+        Livewire::actingAs(User::factory()->create())
+            ->test(Create::class)
+            ->assertSet('sources', ['openstreetmap', 'overture'])
+            ->set('preset', 'free_precision')
+            ->assertSet('sources', ['openstreetmap', 'overture', 'alltheplaces'])
+            ->set('preset', 'paid_enrichment')
+            ->assertSet('sources', ['openstreetmap']);
+    }
+
+    public function test_at_least_one_source_is_required(): void
+    {
+        Livewire::actingAs(User::factory()->create())
+            ->test(Create::class)
+            ->set('city', 'Riyadh')
+            ->set('category', 'cafe')
+            ->set('sources', [])
+            ->call('save')
+            ->assertHasErrors(['sources' => 'required']);
     }
 
     public function test_campaign_status_and_statistics_cannot_be_mass_assigned(): void

@@ -53,7 +53,7 @@ class BusinessEvaluatorTest extends TestCase
         $score = $this->evaluator()->evaluate($business);
 
         $this->assertSame([], $business->opportunities()->pluck('type')->all());
-        $this->assertSame('website_not_audited', $score->breakdown[0]['key']);
+        $this->assertSame('website_not_audited', $score->opportunity_breakdown[0]['key']);
     }
 
     private function evaluator(): BusinessEvaluator

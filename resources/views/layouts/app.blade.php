@@ -23,6 +23,7 @@
                         ['dashboard', 'Dashboard', 'dashboard'],
                         ['campaigns.index', 'Campaigns', 'campaigns.*'],
                         ['businesses.index', 'Businesses', 'businesses.*'],
+                        ['settings.sources', 'Data sources', 'settings.*'],
                     ] as [$route, $label, $pattern])
                         <a href="{{ route($route) }}" @class([
                             'rounded-md px-3 py-1.5 whitespace-nowrap',
@@ -55,7 +56,10 @@
 
     <footer class="border-t border-slate-200 bg-white">
         <div class="mx-auto max-w-7xl px-4 py-4 text-xs text-slate-500 sm:px-6 lg:px-8">
-            Business data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-700">© OpenStreetMap contributors</a>, available under the Open Database License.
+            Business data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-700">© OpenStreetMap contributors</a> (ODbL),
+            <a href="https://docs.overturemaps.org/attribution/" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-700">Overture Maps Foundation</a>,
+            <a href="https://www.alltheplaces.xyz/" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-700">AllThePlaces</a>,
+            the Name Suggestion Index, Wikidata and <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-700">GeoNames</a> (CC BY).
         </div>
     </footer>
 </body>

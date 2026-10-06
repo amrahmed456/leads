@@ -3,7 +3,8 @@
 namespace Tests\Feature\Businesses;
 
 use App\Enums\BusinessCategory;
-use App\Enums\LeadGrade;
+use App\Enums\EntityType;
+use App\Enums\LeadStatus;
 use App\Enums\OpportunityType;
 use App\Livewire\Businesses\Index;
 use App\Models\Business;
@@ -11,6 +12,7 @@ use App\Models\LeadScore;
 use App\Models\Opportunity;
 use App\Models\SearchCampaign;
 use App\Models\User;
+use App\Models\WebsiteAudit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -91,11 +93,54 @@ class BusinessListTest extends TestCase
 
     public function test_sorting_by_lead_score_lists_unscored_businesses_last(): void
     {
-        LeadScore::factory()->for($this->smile)->create(['score' => 40, 'grade' => LeadGrade::Cold]);
-        LeadScore::factory()->for($this->reef)->create(['score' => 75, 'grade' => LeadGrade::Hot]);
+        LeadScore::factory()->for($this->smile)->status(LeadStatus::Low)->create(['score' => 40]);
+        LeadScore::factory()->for($this->reef)->status(LeadStatus::Hot)->create(['score' => 75]);
 
         $this->assertListed(['مطعم الريف', 'Smile Dental', 'Kudu'], $this->list()->set('sort', 'lead_score'), ordered: true);
-        $this->assertListed(['مطعم الريف'], $this->list()->set('grade', 'hot'));
+        $this->assertListed(['مطعم الريف'], $this->list()->set('status', 'hot'));
+    }
+
+    public function test_disqualified_businesses_are_hidden_by_default(): void
+    {
+        LeadScore::factory()->for($this->kudu)->status(LeadStatus::Disqualified)->create();
+        LeadScore::factory()->for($this->reef)->status(LeadStatus::Warm)->create();
+
+        $this->assertListed(['Smile Dental', 'مطعم الريف'], $this->list());
+        $this->assertListed(['Kudu', 'Smile Dental', 'مطعم الريف'], $this->list()->set('hideDisqualified', false));
+        $this->assertListed(['Kudu'], $this->list()->set('status', 'disqualified'));
+    }
+
+    public function test_filters_by_entity_type_brand_and_independence(): void
+    {
+        $this->kudu->forceFill(['entity_type' => EntityType::NationalChain])->save();
+        $this->reef->forceFill(['entity_type' => EntityType::Independent])->save();
+        $this->smile->forceFill(['entity_type' => EntityType::LocalBusiness])->save();
+
+        $this->assertListed(['Kudu'], $this->list()->set('entity', 'national_chain'));
+        $this->assertListed(['Kudu'], $this->list()->set('entity', 'chain'));
+        $this->assertListed(['Smile Dental', 'مطعم الريف'], $this->list()->set('entity', 'independent'));
+    }
+
+    public function test_filters_by_minimum_scores_and_independent_evidence(): void
+    {
+        LeadScore::factory()->for($this->kudu)->create(['data_confidence_score' => 70, 'business_fit_score' => 40, 'opportunity_score' => 60]);
+        LeadScore::factory()->for($this->reef)->create(['data_confidence_score' => 30, 'business_fit_score' => 80, 'opportunity_score' => 20]);
+        $this->reef->forceFill(['independent_source_count' => 2])->save();
+
+        $this->assertListed(['Kudu'], $this->list()->set('minConfidence', '60'));
+        $this->assertListed(['مطعم الريف'], $this->list()->set('minFit', '60'));
+        $this->assertListed(['Kudu'], $this->list()->set('minOpportunity', '45'));
+        $this->assertListed(['مطعم الريف'], $this->list()->set('minEvidence', '2'));
+        $this->assertListed(['Kudu', 'مطعم الريف'], $this->list()->set('sort', 'confidence')->set('minConfidence', '25'), ordered: true);
+    }
+
+    public function test_filters_by_website_features_from_the_latest_audit(): void
+    {
+        WebsiteAudit::factory()->create(['business_id' => $this->kudu, 'has_whatsapp' => false, 'has_arabic' => true]);
+
+        $this->assertListed(['Kudu'], $this->list()->set('feature', 'no_whatsapp'));
+        $this->assertListed(['Kudu'], $this->list()->set('feature', 'arabic'));
+        $this->assertListed([], $this->list()->set('feature', 'whatsapp'));
     }
 
     public function test_filters_by_opportunity(): void

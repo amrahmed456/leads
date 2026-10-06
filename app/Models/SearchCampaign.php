@@ -4,15 +4,16 @@ namespace App\Models;
 
 use App\Discovery\Data\DiscoveryQuery;
 use App\Discovery\Data\GeocodedLocation;
-use App\Discovery\DiscoveryProviderRegistry;
 use App\Enums\BusinessCategory;
 use App\Enums\CampaignStatus;
 use App\Enums\Country;
+use App\Sources\SourceRegistry;
 use Database\Factories\SearchCampaignFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use LogicException;
@@ -20,7 +21,9 @@ use LogicException;
 /**
  * @property int $id
  * @property string $name
- * @property string $provider
+ * @property string $provider The first discovery source (kept for campaigns created before multi-source discovery)
+ * @property list<string>|null $sources Discovery sources to query
+ * @property string|null $preset
  * @property Country $country_code
  * @property string $city
  * @property float|null $latitude
@@ -38,7 +41,7 @@ use LogicException;
  * @property Carbon|null $started_at
  * @property Carbon|null $completed_at
  */
-#[Fillable(['name', 'provider', 'country_code', 'city', 'latitude', 'longitude', 'radius_meters', 'category', 'keywords'])]
+#[Fillable(['name', 'provider', 'sources', 'preset', 'country_code', 'city', 'latitude', 'longitude', 'radius_meters', 'category', 'keywords'])]
 class SearchCampaign extends Model
 {
     /** @use HasFactory<SearchCampaignFactory> */
@@ -68,6 +71,7 @@ class SearchCampaign extends Model
             'category' => BusinessCategory::class,
             'status' => CampaignStatus::class,
             'keywords' => 'array',
+            'sources' => 'array',
             'latitude' => 'float',
             'longitude' => 'float',
             'radius_meters' => 'integer',
@@ -88,6 +92,27 @@ class SearchCampaign extends Model
         return $this->belongsToMany(Business::class)->withTimestamps();
     }
 
+    /**
+     * @return HasMany<CampaignSourceRun, $this>
+     */
+    public function sourceRuns(): HasMany
+    {
+        return $this->hasMany(CampaignSourceRun::class);
+    }
+
+    /**
+     * Discovery sources of the campaign. Campaigns created before
+     * multi-source discovery only have their single provider.
+     *
+     * @return list<string>
+     */
+    public function discoverySources(): array
+    {
+        $sources = array_values(array_unique(array_filter($this->sources ?? [], 'is_string')));
+
+        return $sources !== [] ? $sources : [$this->provider];
+    }
+
     public function hasCoordinates(): bool
     {
         return $this->latitude !== null && $this->longitude !== null;
@@ -100,7 +125,9 @@ class SearchCampaign extends Model
 
     public function providerLabel(): string
     {
-        return app(DiscoveryProviderRegistry::class)->label($this->provider);
+        $registry = app(SourceRegistry::class);
+
+        return implode(', ', array_map($registry->label(...), $this->discoverySources()));
     }
 
     public function toDiscoveryQuery(): DiscoveryQuery
@@ -157,7 +184,10 @@ class SearchCampaign extends Model
         ])->save();
     }
 
-    public function markCompleted(int $results, int $newBusinesses, int $skipped, bool $truncated): void
+    /**
+     * @param  string|null  $warning  Sources that failed or were skipped while others succeeded
+     */
+    public function markCompleted(int $results, int $newBusinesses, int $skipped, bool $truncated, ?string $warning = null): void
     {
         $this->forceFill([
             'status' => CampaignStatus::Completed,
@@ -165,7 +195,7 @@ class SearchCampaign extends Model
             'new_businesses_count' => $newBusinesses,
             'skipped_count' => $skipped,
             'results_truncated' => $truncated,
-            'error_message' => null,
+            'error_message' => $warning === null ? null : Str::limit($warning, 2000),
             'completed_at' => now(),
         ])->save();
     }

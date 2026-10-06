@@ -3,8 +3,11 @@
 namespace App\Livewire\Businesses;
 
 use App\Auditing\WebsiteAuditScheduler;
+use App\Enums\EvidenceStatus;
+use App\Enums\RelationshipType;
 use App\Intelligence\BusinessEvaluator;
 use App\Models\Business;
+use App\Models\BusinessEvidence;
 use App\Models\Opportunity;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -42,6 +45,22 @@ class Show extends Component
         $this->redirectRoute('businesses.show', $this->business);
     }
 
+    /**
+     * Re-run identity analysis and lead qualification without re-auditing.
+     */
+    public function reevaluate(BusinessEvaluator $evaluator): void
+    {
+        $this->business->refresh();
+
+        $this->authorize('analyze', $this->business);
+
+        $evaluator->evaluate($this->business);
+
+        session()->flash('status', 'Identity and lead qualification recalculated.');
+
+        $this->redirectRoute('businesses.show', $this->business);
+    }
+
     public function render(BusinessEvaluator $evaluator): View
     {
         $this->business->load([
@@ -49,7 +68,12 @@ class Show extends Component
             'campaigns' => fn ($query) => $query->latest(),
             'opportunities',
             'leadScore',
+            'brand.organization',
+            'evidence' => fn ($query) => $query->orderBy('fact_type')->orderBy('status')->orderBy('provider'),
+            'relationships.object',
         ]);
+
+        $evidence = $this->business->evidence;
 
         return view('livewire.businesses.show', [
             'currentAudit' => $this->business->websiteAudits()->latest('id')->first(),
@@ -57,6 +81,10 @@ class Show extends Component
             'opportunities' => $this->business->opportunities
                 ->sortByDesc(fn (Opportunity $opportunity): int => $opportunity->priority->rank())
                 ->values(),
+            'evidenceByFact' => $evidence->groupBy(fn (BusinessEvidence $item): string => $item->fact_type->label()),
+            'evidenceGroups' => $evidence->where('status', '!=', EvidenceStatus::Stale)->pluck('independence_group')->unique()->values(),
+            'parentOrganization' => $this->business->relationships->firstWhere('relationship', RelationshipType::ParentOrganization)?->object,
+            'branchOf' => $this->business->relationships->firstWhere('relationship', RelationshipType::BranchOf),
         ])->title($this->business->name);
     }
 }

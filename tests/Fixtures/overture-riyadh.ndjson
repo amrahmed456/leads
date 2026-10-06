@@ -1,0 +1,5 @@
+{"type":"Feature","geometry":{"type":"Point","coordinates":[46.6801,24.6905]},"properties":{"id":"nd-1","names":{"primary":"Reef Corner Cafe"},"categories":{"primary":"coffee_shop"},"confidence":0.71}}
+this line is not json
+{"id":"nd-2","names":{"primary":"Olaya Dental"},"categories":{"primary":"dentist"},"confidence":0.8,"lon":46.68,"lat":24.69}
+
+{"id":"nd-3","names":{"primary":"Olaya Bakery"},"categories":{"primary":"bakery"},"confidence":0.75,"geometry":"POINT (46.681 24.692)"}

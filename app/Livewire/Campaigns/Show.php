@@ -44,11 +44,17 @@ class Show extends Component
     {
         return view('livewire.campaigns.show', [
             'businesses' => $this->campaign->businesses()
-                ->with(['sources', 'leadScore', 'opportunities'])
+                ->with(['sources', 'leadScore', 'opportunities', 'brand'])
                 ->orderByDesc(LeadScore::select('score')->whereColumn('lead_scores.business_id', 'businesses.id'))
                 ->orderBy('name')
                 ->paginate(25),
             'auditCounts' => $this->auditCounts(),
+            'sourceRuns' => $this->campaign->sourceRuns()->orderBy('id')->get(),
+            'statusCounts' => LeadScore::query()
+                ->whereIn('business_id', DB::table('business_search_campaign')->select('business_id')->where('search_campaign_id', $this->campaign->getKey()))
+                ->selectRaw('status, COUNT(*) as total')
+                ->groupBy('status')
+                ->pluck('total', 'status'),
         ])->title($this->campaign->name);
     }
 

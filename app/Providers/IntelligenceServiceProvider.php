@@ -4,16 +4,24 @@ namespace App\Providers;
 
 use App\Auditing\AuditScorer;
 use App\Auditing\Contracts\HostResolver;
+use App\Auditing\CorporatePageDetector;
 use App\Auditing\DnsHostResolver;
+use App\Auditing\StructuredDataExtractor;
 use App\Auditing\UrlGuard;
 use App\Auditing\WebsiteAnalyzer;
 use App\Auditing\WebsiteAuditScheduler;
 use App\Auditing\WebsiteAuditService;
 use App\Auditing\WebsiteFetcher;
+use App\Identity\BusinessIdentityAnalyzer;
 use App\Intelligence\BusinessEvaluator;
 use App\Intelligence\CategoryNeeds;
+use App\Intelligence\Eligibility\ContactRoutes;
+use App\Intelligence\Eligibility\LeadEligibilityService;
+use App\Intelligence\Opportunities\OpportunityDetector;
 use App\Intelligence\Opportunities\Rules\WebsiteRedesignRule;
-use App\Intelligence\Scoring\LeadScoringService;
+use App\Intelligence\Scoring\BusinessFitService;
+use App\Intelligence\Scoring\DataConfidenceService;
+use App\Intelligence\Scoring\OpportunityScoringService;
 use App\Jobs\AuditBusinessWebsite;
 use App\Support\Normalization\UrlNormalizer;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -47,6 +55,8 @@ class IntelligenceServiceProvider extends ServiceProvider
             $app->make(AuditScorer::class),
             $app->make(CategoryNeeds::class),
             $app->make(UrlNormalizer::class),
+            $app->make(StructuredDataExtractor::class),
+            $app->make(CorporatePageDetector::class),
             freshDays: (int) config('auditing.freshness.completed_days'),
         ));
 
@@ -67,10 +77,35 @@ class IntelligenceServiceProvider extends ServiceProvider
             (int) config('intelligence.opportunities.redesign_below_score'),
         ));
 
-        $this->app->bind(LeadScoringService::class, fn (Application $app) => new LeadScoringService(
-            (array) config('intelligence.lead_score'),
-            (array) config('intelligence.category_value'),
+        $this->app->bind(OpportunityScoringService::class, fn (Application $app) => new OpportunityScoringService(
+            (array) config('intelligence.opportunity_score'),
             $app->make(CategoryNeeds::class),
+        ));
+
+        $this->app->bind(DataConfidenceService::class, fn () => new DataConfidenceService(
+            (array) config('intelligence.data_confidence'),
+            (int) config('intelligence.identity.recent_within_days'),
+        ));
+
+        $this->app->bind(BusinessFitService::class, fn () => new BusinessFitService((array) config('intelligence.business_fit')));
+
+        $this->app->bind(LeadEligibilityService::class, fn () => new LeadEligibilityService(
+            (array) config('intelligence.eligibility'),
+            (int) config('intelligence.entity.disqualify_min_confidence'),
+            (array) config('intelligence.services_offered'),
+            (array) config('intelligence.lead_score.weights'),
+        ));
+
+        $this->app->bind(BusinessEvaluator::class, fn (Application $app) => new BusinessEvaluator(
+            $app->make(BusinessIdentityAnalyzer::class),
+            $app->make(OpportunityDetector::class),
+            $app->make(DataConfidenceService::class),
+            $app->make(BusinessFitService::class),
+            $app->make(OpportunityScoringService::class),
+            $app->make(LeadEligibilityService::class),
+            $app->make(ContactRoutes::class),
+            $app->make(UrlNormalizer::class),
+            version: (string) config('intelligence.lead_score.version'),
         ));
     }
 

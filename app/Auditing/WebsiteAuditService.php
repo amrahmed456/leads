@@ -27,6 +27,7 @@ final class WebsiteAuditService
         'title', 'meta_description', 'primary_language', 'cms', 'has_viewport', 'has_phone', 'has_email',
         'has_whatsapp', 'has_contact_form', 'has_booking', 'has_online_ordering', 'has_ecommerce', 'has_cart',
         'has_arabic', 'has_english', 'signals', 'languages', 'technologies', 'score', 'score_breakdown',
+        'structured_data', 'corporate_signals',
     ];
 
     public function __construct(
@@ -35,6 +36,8 @@ final class WebsiteAuditService
         private readonly AuditScorer $scorer,
         private readonly CategoryNeeds $needs,
         private readonly UrlNormalizer $urls,
+        private readonly StructuredDataExtractor $structuredData,
+        private readonly CorporatePageDetector $corporatePages,
         private readonly int $freshDays,
     ) {}
 
@@ -82,10 +85,16 @@ final class WebsiteAuditService
         }
 
         $business = $audit->business;
-        $analysis = $this->analyzer->analyze(HtmlDocument::fromFetch($result), Country::tryFrom((string) $business->country_code));
+        $document = HtmlDocument::fromFetch($result);
+        $analysis = $this->analyzer->analyze($document, Country::tryFrom((string) $business->country_code));
         $score = $this->scorer->score($analysis, $result, $this->needs->forBusiness($business));
 
-        $audit->markCompleted($this->results($url, $result, $analysis, $score));
+        $audit->markCompleted([
+            ...$this->results($url, $result, $analysis, $score),
+            // First-party identity facts: who the website says the business is.
+            'structured_data' => $this->structuredData->extract($document),
+            'corporate_signals' => $this->corporatePages->detect($document) ?: null,
+        ]);
     }
 
     /**

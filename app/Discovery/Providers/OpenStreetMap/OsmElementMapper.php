@@ -93,6 +93,10 @@ final class OsmElementMapper
             sourceUrl: "https://www.openstreetmap.org/{$type}/{$id}",
             // OSM data is ODbL-licensed and may be stored with attribution.
             raw: ['type' => $type, 'id' => $id, 'tags' => $tags],
+            brand: $tags['brand'] ?? null,
+            brandWikidata: $tags['brand:wikidata'] ?? null,
+            operator: $tags['operator'] ?? null,
+            operatingStatus: $this->operatingStatus($tags),
         );
     }
 
@@ -232,6 +236,22 @@ final class OsmElementMapper
         }
 
         return $links;
+    }
+
+    /**
+     * Lifecycle prefixes ("disused:shop", "was:amenity") mean the business has closed.
+     *
+     * @param  array<string, string>  $tags
+     */
+    private function operatingStatus(array $tags): ?string
+    {
+        foreach (array_keys($tags) as $key) {
+            if (preg_match('/^(?:disused|abandoned|was|demolished|razed):(?:amenity|shop|office|tourism|leisure|healthcare|craft)$/', $key)) {
+                return 'permanently_closed';
+            }
+        }
+
+        return null;
     }
 
     private function isPositiveInteger(mixed $value): bool

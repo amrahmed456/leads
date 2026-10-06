@@ -13,10 +13,12 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Runs business discovery for one campaign in the background.
+ * Starts discovery for one campaign: locates the search area, then queues
+ * one DiscoverCampaignFromProvider job per discovery source. Each source
+ * then succeeds, retries or fails on its own.
  *
- * Transient failures (timeouts, rate limits, provider outages) are retried
- * with a delay; permanent failures fail the campaign straight away.
+ * Transient failures to locate the area are retried with a delay;
+ * permanent ones (unknown place) fail the campaign straight away.
  */
 class RunCampaignDiscovery implements ShouldBeUnique, ShouldQueue
 {
@@ -50,7 +52,7 @@ class RunCampaignDiscovery implements ShouldBeUnique, ShouldQueue
     public function handle(CampaignDiscoveryService $discovery): void
     {
         try {
-            $discovery->run($this->campaign);
+            $runs = $discovery->start($this->campaign);
         } catch (Throwable $e) {
             $retryable = ! $e instanceof DiscoveryException || $e->retryable;
 
@@ -74,8 +76,12 @@ class RunCampaignDiscovery implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        // Follow-up work must never turn a completed discovery into a failure.
-        rescue(fn () => QueueCampaignAudits::dispatch($this->campaign));
+        foreach ($runs as $run) {
+            // A synchronous run (command line --sync) runs every source in this process.
+            $this->runsSynchronously()
+                ? DiscoverCampaignFromProvider::dispatchSync($run)
+                : DiscoverCampaignFromProvider::dispatch($run);
+        }
     }
 
     /**
@@ -100,7 +106,7 @@ class RunCampaignDiscovery implements ShouldBeUnique, ShouldQueue
     {
         return [
             'campaign_id' => $this->campaign->getKey(),
-            'provider' => $this->campaign->provider,
+            'sources' => $this->campaign->discoverySources(),
             'attempt' => $this->job ? $this->attempts() : null,
             'exception' => $e ? $e::class : null,
             'message' => $e?->getMessage(),

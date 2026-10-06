@@ -1,0 +1,16 @@
+{
+  "entities": {
+    "Q524757": {
+      "id": "Q524757",
+      "labels": {"en": {"language": "en", "value": "KFC"}, "ar": {"language": "ar", "value": "دجاج كنتاكي"}},
+      "descriptions": {"en": {"language": "en", "value": "American fast food restaurant chain"}},
+      "aliases": {"en": [{"language": "en", "value": "Kentucky Fried Chicken"}]},
+      "claims": {
+        "P31": [{"mainsnak": {"datavalue": {"value": {"id": "Q18509232"}}}}],
+        "P856": [{"mainsnak": {"datavalue": {"value": "https://www.kfc.com/"}}}],
+        "P749": [{"mainsnak": {"datavalue": {"value": {"id": "Q1153"}}}}],
+        "P17": [{"mainsnak": {"datavalue": {"value": {"id": "Q30"}}}}, {"mainsnak": {"datavalue": {"value": {"id": "Q851"}}}}]
+      }
+    }
+  }
+}

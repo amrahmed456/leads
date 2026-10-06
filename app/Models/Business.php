@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BusinessCategory;
+use App\Enums\EntityType;
 use App\Support\Normalization\Text;
 use Database\Factories\BusinessFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -10,9 +11,11 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -23,6 +26,14 @@ use Illuminate\Support\Str;
  * @property string $name_normalized
  * @property BusinessCategory|null $category
  * @property string|null $type
+ * @property int|null $brand_id
+ * @property int|null $brand_confidence
+ * @property string|null $brand_source
+ * @property EntityType|null $entity_type
+ * @property int|null $entity_confidence
+ * @property list<string>|null $entity_reason_codes
+ * @property list<array{code: string, label: string}>|null $entity_reasons
+ * @property Carbon|null $classified_at
  * @property string|null $country_code
  * @property string|null $city
  * @property string|null $address
@@ -33,15 +44,21 @@ use Illuminate\Support\Str;
  * @property string|null $email
  * @property array<string, string>|null $social_links
  * @property string|null $opening_hours
+ * @property string|null $operating_status
  * @property float|null $rating
  * @property int|null $reviews_count
+ * @property int $evidence_count
+ * @property int $independent_source_count
+ * @property bool $has_identity_conflict
+ * @property list<array{fact: string, severity: string, values: list<array{value: string, provider: string, group: string}>, preferred: string}>|null $identity_conflicts
  * @property Carbon $first_discovered_at
  * @property Carbon $last_seen_at
+ * @property Carbon|null $last_verified_at
  */
 #[Fillable([
     'name', 'alternate_name', 'category', 'type', 'country_code', 'city', 'address',
     'latitude', 'longitude', 'phone', 'website', 'email', 'social_links', 'opening_hours',
-    'rating', 'reviews_count', 'first_discovered_at', 'last_seen_at',
+    'rating', 'reviews_count', 'first_discovered_at', 'last_seen_at', 'operating_status',
 ])]
 class Business extends Model
 {
@@ -60,8 +77,19 @@ class Business extends Model
             'social_links' => 'array',
             'rating' => 'float',
             'reviews_count' => 'integer',
+            'brand_confidence' => 'integer',
+            'entity_type' => EntityType::class,
+            'entity_confidence' => 'integer',
+            'entity_reason_codes' => 'array',
+            'entity_reasons' => 'array',
+            'classified_at' => 'datetime',
+            'evidence_count' => 'integer',
+            'independent_source_count' => 'integer',
+            'has_identity_conflict' => 'boolean',
+            'identity_conflicts' => 'array',
             'first_discovered_at' => 'datetime',
             'last_seen_at' => 'datetime',
+            'last_verified_at' => 'datetime',
         ];
     }
 
@@ -78,6 +106,32 @@ class Business extends Model
     public function sources(): HasMany
     {
         return $this->hasMany(BusinessSource::class);
+    }
+
+    /**
+     * @return HasMany<BusinessEvidence, $this>
+     */
+    public function evidence(): HasMany
+    {
+        return $this->hasMany(BusinessEvidence::class);
+    }
+
+    /**
+     * @return BelongsTo<Brand, $this>
+     */
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
+    }
+
+    /**
+     * Graph edges starting at this business (branch_of, parent_organization...).
+     *
+     * @return MorphMany<EntityRelationship, $this>
+     */
+    public function relationships(): MorphMany
+    {
+        return $this->morphMany(EntityRelationship::class, 'subject');
     }
 
     /**

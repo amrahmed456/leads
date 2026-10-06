@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "مطعم الريف",
+        "name_international": {"en": "Al Reef Restaurant"},
+        "country_code": "sa",
+        "formatted": "King Fahd Road, Olaya, Riyadh",
+        "lon": 46.6865, "lat": 24.6901,
+        "categories": ["catering", "catering.restaurant"],
+        "website": "https://www.alreef.sa/",
+        "contact": {"phone": "+966 11 234 5678"},
+        "datasource": {"sourcename": "openstreetmap", "raw": {"osm_id": 1001, "osm_type": "n", "amenity": "restaurant"}},
+        "place_id": "51geoapify-reef"
+      },
+      "geometry": {"type": "Point", "coordinates": [46.6865, 24.6901]}
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Hamburgini",
+        "country_code": "sa",
+        "lon": 46.70, "lat": 24.70,
+        "categories": ["catering", "catering.fast_food"],
+        "brand": "Hamburgini",
+        "brand_details": {"wikidata": "Q115555555"},
+        "datasource": {"sourcename": "openstreetmap", "raw": {"osm_id": 4242, "osm_type": "w", "amenity": "fast_food", "operator": "Hamburgini Co"}},
+        "place_id": "51geoapify-hamburgini"
+      },
+      "geometry": {"type": "Point", "coordinates": [46.70, 24.70]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"lon": 46.71, "lat": 24.71, "categories": ["catering.restaurant"], "place_id": "51geoapify-unnamed"},
+      "geometry": {"type": "Point", "coordinates": [46.71, 24.71]}
+    }
+  ]
+}

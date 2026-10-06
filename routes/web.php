@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Livewire\Businesses;
 use App\Livewire\Campaigns;
 use App\Livewire\Dashboard;
+use App\Livewire\Settings;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -20,6 +21,10 @@ Route::middleware('auth')->group(function () {
 
     Route::livewire('/businesses', Businesses\Index::class)->name('businesses.index');
     Route::livewire('/businesses/{business}', Businesses\Show::class)->whereNumber('business')->name('businesses.show');
+
+    Route::livewire('/settings/sources', Settings\DataSources::class)->name('settings.sources');
+    Route::livewire('/settings/sources/overture', Settings\OvertureImports::class)->name('settings.overture');
+    Route::livewire('/settings/sources/alltheplaces', Settings\AtpSpiders::class)->name('settings.alltheplaces');
 
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 });

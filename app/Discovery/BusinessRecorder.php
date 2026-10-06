@@ -4,10 +4,16 @@ namespace App\Discovery;
 
 use App\Discovery\Data\DiscoveredBusiness;
 use App\Discovery\Data\RecordedBusiness;
+use App\Identity\EntityMatcher;
+use App\Identity\Evidence\EvidenceProvenance;
+use App\Identity\Evidence\EvidenceRecorder;
+use App\Identity\IndependenceResolver;
+use App\Identity\MatchCandidate;
+use App\Identity\MatchResult;
 use App\Models\Business;
 use App\Models\BusinessSource;
+use App\Sources\SourceRegistry;
 use App\Support\Geo;
-use App\Support\Normalization\Text;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -16,10 +22,14 @@ use Illuminate\Support\Facades\DB;
  *
  * 1. A provider record (provider + provider_id) is stored at most once; this
  *    is enforced by a unique index. Seeing it again refreshes its business.
- * 2. A new provider record is linked to an existing business with the same
- *    normalized name nearby (OSM often maps one shop as both a point and a
- *    building; later, other providers will report the same business).
- * 3. Only otherwise is a new business created.
+ * 2. A record carrying a strong identifier of a stored record (a Geoapify
+ *    result with its OpenStreetMap ID) joins that record's business.
+ * 3. A new record is linked to an existing nearby business when the entity
+ *    matcher says they are the same place (see EntityMatcher).
+ * 4. Only otherwise is a new business created.
+ *
+ * Every source record keeps its role, independence group, confidence and
+ * provenance, and every fact it states is recorded as evidence.
  */
 final class BusinessRecorder
 {
@@ -36,11 +46,17 @@ final class BusinessRecorder
         'website' => 'website',
         'email' => 'email',
         'opening_hours' => 'openingHours',
+        'operating_status' => 'operatingStatus',
         'rating' => 'rating',
         'reviews_count' => 'reviewsCount',
     ];
 
-    public function __construct(private readonly int $dedupeDistanceMeters) {}
+    public function __construct(
+        private readonly EntityMatcher $matcher,
+        private readonly EvidenceRecorder $evidence,
+        private readonly IndependenceResolver $independence,
+        private readonly SourceRegistry $sources,
+    ) {}
 
     /**
      * @param  string|null  $city  City searched for; set on businesses that do not have one yet
@@ -53,6 +69,23 @@ final class BusinessRecorder
             // A concurrent run stored this provider record first; it exists now, so update it.
             return DB::transaction(fn () => $this->store($data, $city));
         }
+    }
+
+    /**
+     * Link a record to a business already known to be the same place (e.g. a
+     * first-party store locator branch matched during identity analysis).
+     */
+    public function attach(Business $business, DiscoveredBusiness $data, MatchResult $match): BusinessSource
+    {
+        return DB::transaction(function () use ($business, $data, $match): BusinessSource {
+            $this->apply($business, $data, overwrite: false, city: null);
+            $business->save();
+
+            $source = $this->createSource($business, $data, isPrimary: false, matchReasons: $match->reasons);
+            $this->evidence->recordDiscovered($business, EvidenceProvenance::fromSource($source), $data);
+
+            return $source;
+        });
     }
 
     private function store(DiscoveredBusiness $data, ?string $city): RecordedBusiness
@@ -74,13 +107,17 @@ final class BusinessRecorder
             $source->forceFill([
                 'source_url' => $data->sourceUrl ?? $source->source_url,
                 'raw_data' => $data->raw ?? $source->raw_data,
+                'confidence' => $data->confidence ?? $source->confidence,
+                'provenance' => $data->provenance !== [] ? $data->provenance : $source->provenance,
                 'last_seen_at' => $now,
             ])->save();
+
+            $this->evidence->recordDiscovered($business, EvidenceProvenance::fromSource($source), $data);
 
             return new RecordedBusiness($business, RecordOutcome::Updated);
         }
 
-        $business = $this->findDuplicate($data);
+        [$business, $match] = $this->findDuplicate($data);
         $outcome = $business === null ? RecordOutcome::Created : RecordOutcome::Merged;
 
         $business ??= new Business(['first_discovered_at' => $now]);
@@ -88,17 +125,33 @@ final class BusinessRecorder
         $business->last_seen_at = $now;
         $business->save();
 
-        $business->sources()->create([
+        $source = $this->createSource($business, $data, isPrimary: $outcome === RecordOutcome::Created, matchReasons: $match?->reasons);
+        $this->evidence->recordDiscovered($business, EvidenceProvenance::fromSource($source), $data);
+
+        return new RecordedBusiness($business, $outcome);
+    }
+
+    /**
+     * @param  list<string>|null  $matchReasons
+     */
+    private function createSource(Business $business, DiscoveredBusiness $data, bool $isPrimary, ?array $matchReasons): BusinessSource
+    {
+        $now = now();
+
+        return $business->sources()->create([
             'provider' => $data->provider,
+            'source_role' => $this->sources->primaryRole($data->provider),
+            'independence_group' => $data->independenceGroup ?? $this->independence->groupFor($data->provider, $data->provenance),
             'provider_id' => $data->providerId,
-            'is_primary' => $outcome === RecordOutcome::Created,
+            'is_primary' => $isPrimary,
+            'confidence' => $data->confidence,
+            'provenance' => $data->provenance === [] ? null : $data->provenance,
+            'match_reasons' => $matchReasons,
             'source_url' => $data->sourceUrl,
             'raw_data' => $data->raw,
             'first_seen_at' => $now,
             'last_seen_at' => $now,
         ]);
-
-        return new RecordedBusiness($business, $outcome);
     }
 
     /**
@@ -125,25 +178,50 @@ final class BusinessRecorder
         $business->social_links = $links === [] ? null : $links;
     }
 
-    private function findDuplicate(DiscoveredBusiness $data): ?Business
+    /**
+     * @return array{0: ?Business, 1: ?MatchResult}
+     */
+    private function findDuplicate(DiscoveredBusiness $data): array
     {
-        if ($data->latitude === null || $data->longitude === null) {
-            return null;
+        $candidate = MatchCandidate::fromDiscovered($data);
+
+        // A strong identifier (e.g. the OpenStreetMap ID inside a Geoapify result) wins.
+        foreach ($data->identifiers as $provider => $id) {
+            $linked = BusinessSource::query()->with('business')->where('provider', $provider)->where('provider_id', $id)->first();
+
+            if ($linked !== null) {
+                return [$linked->business, new MatchResult(true, 100, ["Same {$provider} record ({$id})"])];
+            }
         }
 
-        [$latDelta, $lonDelta] = Geo::boundingDeltas($data->latitude, $this->dedupeDistanceMeters);
+        if ($data->latitude === null || $data->longitude === null) {
+            return [null, null];
+        }
 
-        return Business::query()
-            ->where('name_normalized', Text::matchKey($data->name))
+        [$latDelta, $lonDelta] = Geo::boundingDeltas($data->latitude, $this->matcher->maxDistance());
+
+        $best = null;
+
+        Business::query()
+            ->with(['sources', 'brand'])
             ->whereBetween('latitude', [$data->latitude - $latDelta, $data->latitude + $latDelta])
             ->whereBetween('longitude', [$data->longitude - $lonDelta, $data->longitude + $lonDelta])
+            ->limit(200)
             ->get()
-            ->map(fn (Business $business) => [
-                'business' => $business,
-                'distance' => Geo::distanceMeters($data->latitude, $data->longitude, $business->latitude, $business->longitude),
-            ])
-            ->filter(fn (array $candidate) => $candidate['distance'] <= $this->dedupeDistanceMeters)
-            ->sortBy('distance')
-            ->first()['business'] ?? null;
+            ->each(function (Business $business) use ($candidate, &$best): void {
+                $match = $this->matcher->match(MatchCandidate::fromBusiness($business), $candidate);
+
+                if ($match->matched && ($best === null || $this->isBetter($match, $best[1]))) {
+                    $best = [$business, $match];
+                }
+            });
+
+        return $best ?? [null, null];
+    }
+
+    private function isBetter(MatchResult $match, MatchResult $current): bool
+    {
+        return $match->confidence > $current->confidence
+            || ($match->confidence === $current->confidence && ($match->distanceMeters ?? INF) < ($current->distanceMeters ?? INF));
     }
 }

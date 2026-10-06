@@ -81,7 +81,35 @@ final class BusinessNormalizer
             socialLinks: $this->socialLinks->normalize($socialLinks, $country),
             sourceUrl: $this->urls->normalize($business->sourceUrl),
             raw: $business->raw,
+            brand: Text::clean($business->brand, 150),
+            brandWikidata: $this->wikidataId($business->brandWikidata),
+            operator: Text::clean($business->operator, 150),
+            confidence: $business->confidence !== null && is_finite($business->confidence)
+                ? round(max(0.0, min(1.0, $business->confidence)), 3)
+                : null,
+            operatingStatus: $this->operatingStatus($business->operatingStatus),
+            identifiers: array_filter(
+                array_map(fn (mixed $id): ?string => is_scalar($id) ? Text::clean((string) $id, 191) : null, $business->identifiers),
+            ),
+            provenance: $business->provenance,
+            independenceGroup: Text::clean($business->independenceGroup, 50),
         );
+    }
+
+    private function wikidataId(?string $value): ?string
+    {
+        $value = strtoupper(trim((string) $value));
+
+        return preg_match('/^Q[1-9]\d{0,12}$/', $value) ? $value : null;
+    }
+
+    private function operatingStatus(?string $value): ?string
+    {
+        $value = strtolower(trim((string) $value));
+
+        return in_array($value, ['open', 'temporarily_closed', 'permanently_closed', 'closed'], true)
+            ? ($value === 'closed' ? 'permanently_closed' : $value)
+            : null;
     }
 
     /**

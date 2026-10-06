@@ -5,8 +5,11 @@ namespace App\Livewire\Campaigns;
 use App\Discovery\DiscoveryProviderRegistry;
 use App\Enums\BusinessCategory;
 use App\Enums\Country;
+use App\Enums\SourceRole;
 use App\Jobs\RunCampaignDiscovery;
 use App\Models\SearchCampaign;
+use App\Sources\GeoNames\CityResolver;
+use App\Sources\SourceRegistry;
 use Closure;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -20,7 +23,10 @@ class Create extends Component
 
     public string $name = '';
 
-    public string $provider = '';
+    public string $preset = '';
+
+    /** @var list<string> Discovery sources to query */
+    public array $sources = [];
 
     public string $country = 'SA';
 
@@ -40,7 +46,7 @@ class Create extends Component
     {
         $this->authorize('create', SearchCampaign::class);
 
-        $this->provider = (string) config('discovery.default_provider');
+        $this->usePreset((string) config('sources.default_preset'));
         $this->radiusKm = (string) config('discovery.radius.default_km');
     }
 
@@ -51,7 +57,9 @@ class Create extends Component
     {
         return [
             'name' => ['nullable', 'string', 'max:150'],
-            'provider' => ['required', 'string', Rule::in(array_keys(app(DiscoveryProviderRegistry::class)->options()))],
+            'preset' => ['nullable', 'string', Rule::in(array_keys((array) config('sources.presets')))],
+            'sources' => ['required', 'array', 'min:1'],
+            'sources.*' => ['string', 'distinct', Rule::in(array_keys(app(DiscoveryProviderRegistry::class)->options()))],
             'country' => ['required', Rule::enum(Country::class)],
             'city' => ['required', 'string', 'min:2', 'max:120'],
             'category' => ['required', Rule::enum(BusinessCategory::class)],
@@ -71,22 +79,43 @@ class Create extends Component
      */
     protected function validationAttributes(): array
     {
-        return ['radiusKm' => 'radius'];
+        return ['radiusKm' => 'radius', 'sources' => 'discovery sources', 'sources.*' => 'discovery source'];
     }
 
-    public function save(): void
+    /**
+     * Selecting a preset selects its sources (those available; paid ones never are by default).
+     */
+    public function updatedPreset(string $preset): void
+    {
+        $this->usePreset($preset);
+    }
+
+    private function usePreset(string $preset): void
+    {
+        $available = array_keys(app(DiscoveryProviderRegistry::class)->options());
+        $this->preset = array_key_exists($preset, (array) config('sources.presets')) ? $preset : '';
+        $this->sources = array_values(array_intersect((array) config("sources.presets.{$this->preset}.discovery", []), $available)) ?: array_slice($available, 0, 1);
+    }
+
+    public function save(CityResolver $cities): void
     {
         $this->authorize('create', SearchCampaign::class);
 
         $this->validate();
 
         $category = BusinessCategory::from($this->category);
+        $country = Country::from($this->country);
         $city = trim((string) preg_replace('/\s+/u', ' ', $this->city));
+        // "الرياض" and "Riyadh" become the same campaign city when GeoNames knows it.
+        $city = $cities->canonicalName($city, $country) ?? $city;
+        $sources = array_values(array_unique($this->sources));
 
         $campaign = SearchCampaign::create([
             'name' => trim($this->name) !== '' ? trim($this->name) : "{$category->label()} in {$city}",
-            'provider' => $this->provider,
-            'country_code' => Country::from($this->country),
+            'provider' => $sources[0],
+            'sources' => $sources,
+            'preset' => $this->preset !== '' ? $this->preset : null,
+            'country_code' => $country,
             'city' => $city,
             'latitude' => $this->latitude !== '' ? (float) $this->latitude : null,
             'longitude' => $this->longitude !== '' ? (float) $this->longitude : null,
@@ -105,12 +134,35 @@ class Create extends Component
     public function render(): View
     {
         return view('livewire.campaigns.create', [
-            'providers' => app(DiscoveryProviderRegistry::class)->options(),
+            'discoverySources' => $this->discoverySources(),
+            'presets' => (array) config('sources.presets'),
             'countries' => Country::options(),
             'categories' => BusinessCategory::options(),
             'citySuggestions' => Country::tryFrom($this->country)?->suggestedCities() ?? [],
             'radius' => config('discovery.radius'),
         ]);
+    }
+
+    /**
+     * Every discovery source, including unavailable and future ones, with why it cannot be used.
+     *
+     * @return list<array{key: string, label: string, available: bool, reason: ?string, tier: string, group: string, notes: ?string}>
+     */
+    private function discoverySources(): array
+    {
+        $registry = app(DiscoveryProviderRegistry::class);
+        $catalog = app(SourceRegistry::class);
+        $keys = array_values(array_unique([...$registry->keys(), ...array_keys($catalog->withRole(SourceRole::Discovery))]));
+
+        return array_map(fn (string $key): array => [
+            'key' => $key,
+            'label' => $catalog->label($key),
+            'available' => $registry->isEnabled($key),
+            'reason' => $registry->isEnabled($key) ? null : ($catalog->has($key) && ! $catalog->descriptor($key)->implemented ? 'Coming later' : $registry->unavailableReason($key)),
+            'tier' => $catalog->has($key) ? $catalog->descriptor($key)->tier : 'free',
+            'group' => $catalog->independenceGroup($key),
+            'notes' => $catalog->has($key) ? $catalog->descriptor($key)->notes : null,
+        ], $keys);
     }
 
     /**

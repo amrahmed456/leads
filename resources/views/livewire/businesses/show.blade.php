@@ -8,6 +8,13 @@
                 <p class="text-slate-500" dir="auto">{{ $business->alternate_name }}</p>
             @endif
             <div class="mt-2 flex flex-wrap gap-2 text-xs">
+                @if ($business->leadScore)
+                    <span class="rounded-full px-2 py-0.5 font-semibold {{ $business->leadScore->status->badgeClasses() }}">{{ $business->leadScore->status->label() }}</span>
+                @endif
+                <x-entity-type :type="$business->entity_type" :confidence="$business->entity_confidence" />
+                @if ($business->brand)
+                    <span class="rounded-full bg-slate-800 px-2 py-0.5 font-medium text-white">Brand: {{ $business->brand->name }}</span>
+                @endif
                 <span class="rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 ring-1 ring-indigo-600/20 ring-inset">{{ $business->category?->label() ?? 'Uncategorized' }}</span>
                 @if ($business->type)
                     <span class="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{{ $business->typeLabel() }}</span>
@@ -249,6 +256,8 @@
                                     @if ($source->is_primary)
                                         <span class="text-xs text-slate-500">primary</span>
                                     @endif
+                                    <span class="rounded bg-indigo-50 px-1.5 py-0.5 text-xs text-indigo-700" title="Independence group">{{ $source->independence_group }}</span>
+                                    <span class="text-xs text-slate-500">{{ $source->source_role->label() }}</span>
                                 </div>
                                 @if ($source->source_url)
                                     <a href="{{ $source->source_url }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">View on {{ $source->providerLabel() }} ↗</a>
@@ -256,7 +265,14 @@
                             </div>
                             <p class="mt-1 text-xs text-slate-500">
                                 First seen {{ $source->first_seen_at->toDayDateTimeString() }} UTC · last seen {{ $source->last_seen_at->diffForHumans() }}
+                                @if ($source->confidence !== null) · source confidence {{ number_format($source->confidence, 2) }} @endif
                             </p>
+                            @if ($source->match_reasons)
+                                <p class="mt-1 text-xs text-slate-500">Matched: {{ implode('; ', $source->match_reasons) }}</p>
+                            @endif
+                            @if ($source->provenance)
+                                <p class="mt-1 text-xs text-slate-500">Provenance: {{ collect($source->provenance)->pluck('dataset')->filter()->unique()->implode(', ') }}</p>
+                            @endif
                             @if ($source->raw_data)
                                 <details class="mt-2">
                                     <summary class="cursor-pointer text-xs text-slate-500 hover:text-slate-700">Raw provider data</summary>
@@ -272,42 +288,158 @@
                     </p>
                 @endif
             </div>
+
+            <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                <h2 class="border-b border-slate-200 px-5 py-3 text-base font-semibold">Evidence chain</h2>
+                @forelse ($evidenceByFact as $fact => $items)
+                    <div class="border-b border-slate-100 px-5 py-3 last:border-b-0">
+                        <h3 class="text-xs font-semibold tracking-wide text-slate-500 uppercase">{{ $fact }}</h3>
+                        <ul class="mt-1 space-y-1 text-sm">
+                            @foreach ($items as $item)
+                                <li wire:key="evidence-{{ $item->id }}" @class(['flex flex-wrap items-baseline gap-x-2', 'opacity-50' => $item->status === \App\Enums\EvidenceStatus::Stale])>
+                                    <span class="font-medium break-all" dir="auto">{{ $item->value }}</span>
+                                    <span class="text-xs text-slate-500">
+                                        {{ $item->providerLabel() }} · {{ $item->independence_group }} · {{ $item->source_role->label() }}
+                                        @if ($item->confidence !== null) · {{ number_format($item->confidence, 2) }} @endif
+                                        · seen {{ $item->last_seen_at->diffForHumans() }}
+                                    </span>
+                                    @if ($item->status !== \App\Enums\EvidenceStatus::Active)
+                                        <span @class(['rounded px-1 text-[10px] font-medium uppercase', 'bg-amber-100 text-amber-800' => $item->status === \App\Enums\EvidenceStatus::Conflicting, 'bg-slate-100 text-slate-500' => $item->status === \App\Enums\EvidenceStatus::Stale])>{{ $item->status->label() }}</span>
+                                    @endif
+                                    @if ($item->source_url)
+                                        <a href="{{ $item->source_url }}" target="_blank" rel="noopener noreferrer nofollow" class="text-xs text-indigo-600 hover:underline">source ↗</a>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @empty
+                    <p class="px-5 py-4 text-sm text-slate-500">No evidence recorded yet.</p>
+                @endforelse
+            </div>
         </div>
 
         <div class="space-y-6">
             <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                <h2 class="border-b border-slate-200 px-5 py-3 text-base font-semibold">Lead score</h2>
-                @if ($business->leadScore)
-                    @php($breakdownTotal = array_sum(array_column($business->leadScore->breakdown, 'points')))
+                <div class="flex items-center justify-between gap-2 border-b border-slate-200 px-5 py-3">
+                    <h2 class="text-base font-semibold">Lead qualification</h2>
+                    <button type="button" wire:click="reevaluate" wire:loading.attr="disabled" class="text-xs text-indigo-600 hover:underline disabled:opacity-50">Recalculate</button>
+                </div>
+                @if ($score = $business->leadScore)
                     <div class="flex items-center gap-3 px-5 pt-4">
-                        <span class="text-4xl font-semibold tabular-nums">{{ $business->leadScore->score }}</span>
+                        <span class="rounded-md px-2.5 py-1 text-sm font-semibold {{ $score->status->badgeClasses() }}">{{ $score->status->label() }}</span>
+                        <span class="ml-auto text-3xl font-semibold tabular-nums">{{ $score->score }}</span>
                         <span class="text-sm text-slate-400">/ 100</span>
-                        <span @class([
-                            'ml-auto rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                            'bg-rose-600 text-white' => $business->leadScore->grade === \App\Enums\LeadGrade::Hot,
-                            'bg-amber-100 text-amber-800' => $business->leadScore->grade === \App\Enums\LeadGrade::Warm,
-                            'bg-slate-100 text-slate-600' => $business->leadScore->grade === \App\Enums\LeadGrade::Cold,
-                        ])>{{ $business->leadScore->grade->label() }} lead</span>
                     </div>
-                    <ul class="divide-y divide-slate-100 px-5 py-3 text-sm">
-                        @foreach ($business->leadScore->breakdown as $item)
-                            <li class="flex justify-between gap-3 py-1.5">
-                                <span class="text-slate-600" dir="auto">{{ $item['label'] }}</span>
-                                <span @class([
-                                    'font-medium tabular-nums',
-                                    'text-emerald-700' => $item['points'] > 0,
-                                    'text-rose-700' => $item['points'] < 0,
-                                    'text-slate-400' => $item['points'] === 0,
-                                ])>{{ $item['points'] > 0 ? '+' : '' }}{{ $item['points'] }}</span>
+
+                    <div class="px-5 pt-3 pb-2">
+                        <h3 class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Why?</h3>
+                        <ul class="mt-1.5 space-y-1 text-sm">
+                            @forelse ($score->eligibility_reasons ?? [] as $reason)
+                                <li class="flex gap-2">
+                                    <code class="mt-0.5 shrink-0 rounded bg-slate-100 px-1 text-[10px] leading-4 text-slate-500">{{ $reason['code'] }}</code>
+                                    <span class="text-slate-700" dir="auto">{{ $reason['label'] }}</span>
+                                </li>
+                            @empty
+                                <li class="text-slate-400">Recalculate to see the reasons.</li>
+                            @endforelse
+                        </ul>
+                    </div>
+
+                    <div class="divide-y divide-slate-100 border-t border-slate-100">
+                        <x-score-card label="Business fit" :score="$score->business_fit_score" :breakdown="$score->fit_breakdown ?? []" hint="Is this kind of business a good target for us?" />
+                        <x-score-card label="Opportunity" :score="$score->opportunity_score" :breakdown="$score->opportunity_breakdown ?? []" hint="Digital gaps we can fix." />
+                        <x-score-card label="Data confidence" :score="$score->data_confidence_score" :breakdown="$score->confidence_breakdown ?? []" hint="Is the business real and its data current? Not buying intent." />
+                    </div>
+
+                    <details class="border-t border-slate-100 px-5 py-2">
+                        <summary class="cursor-pointer text-xs text-slate-500 hover:text-slate-700">Lead score composition</summary>
+                        <ul class="mt-1 space-y-0.5 text-xs">
+                            @foreach ($score->breakdown as $item)
+                                <li class="flex justify-between gap-3"><span class="text-slate-600">{{ $item['label'] }}</span><span class="tabular-nums">{{ $item['points'] }}</span></li>
+                            @endforeach
+                        </ul>
+                    </details>
+                    <p class="border-t border-slate-100 px-5 py-2 text-xs text-slate-500">
+                        Deterministic rules v{{ $score->version }} · updated {{ $score->scored_at->diffForHumans() }}
+                    </p>
+                @else
+                    <p class="px-5 py-4 text-sm text-slate-500">Not qualified yet.</p>
+                @endif
+            </div>
+
+            <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                <h2 class="border-b border-slate-200 px-5 py-3 text-base font-semibold">Identity</h2>
+                <dl class="divide-y divide-slate-100">
+                    <x-field label="Name"><span dir="auto">{{ $business->name }}</span></x-field>
+                    <x-field label="Brand">
+                        @if ($business->brand)
+                            <span class="font-medium">{{ $business->brand->name }}</span>
+                            <div class="text-xs text-slate-500">
+                                {{ $business->brand_confidence }}% confidence · from {{ app(\App\Sources\SourceRegistry::class)->label((string) $business->brand_source) }}
+                                · scope {{ $business->brand->scope->label() }}
+                                @if ($business->brand->wikidata_id)
+                                    · <a href="https://www.wikidata.org/wiki/{{ $business->brand->wikidata_id }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">{{ $business->brand->wikidata_id }}</a>
+                                @endif
+                                @if ($business->brand->location_count)
+                                    · {{ number_format($business->brand->location_count) }} known locations
+                                @endif
+                            </div>
+                        @endif
+                    </x-field>
+                    <x-field label="Entity type">
+                        <x-entity-type :type="$business->entity_type" />
+                        @if ($business->entity_confidence !== null)
+                            <span class="text-xs text-slate-500">{{ $business->entity_confidence }}% confidence</span>
+                        @endif
+                    </x-field>
+                    <x-field label="Parent organization">{{ $parentOrganization?->name ?? $business->brand?->organization?->name }}</x-field>
+                    <x-field label="Branch relationship">
+                        @if ($branchOf)
+                            Branch of {{ $branchOf->object?->name }} <span class="text-xs text-slate-500">({{ $branchOf->confidence }}%)</span>
+                        @endif
+                    </x-field>
+                </dl>
+                @if ($business->entity_reasons)
+                    <ul class="space-y-1 border-t border-slate-100 px-5 py-3 text-sm">
+                        @foreach ($business->entity_reasons as $reason)
+                            <li @class(['flex gap-2', 'text-slate-400' => $reason['weak'] ?? false])>
+                                <code class="mt-0.5 shrink-0 rounded bg-slate-100 px-1 text-[10px] leading-4 text-slate-500">{{ $reason['code'] }}</code>
+                                <span dir="auto">{{ $reason['label'] }}@if ($reason['weak'] ?? false) <span class="text-xs">(weak hint)</span>@endif</span>
                             </li>
                         @endforeach
                     </ul>
-                    <p class="border-t border-slate-100 px-5 py-2 text-xs text-slate-500">
-                        Rule-based score (rules v{{ $business->leadScore->version }}){{ $breakdownTotal > 100 ? ', capped at 100' : '' }} · updated {{ $business->leadScore->scored_at->diffForHumans() }}
-                    </p>
-                @else
-                    <p class="px-5 py-4 text-sm text-slate-500">Not scored yet.</p>
                 @endif
+            </div>
+
+            <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                <h2 class="border-b border-slate-200 px-5 py-3 text-base font-semibold">Data confidence</h2>
+                <dl class="divide-y divide-slate-100">
+                    <x-field label="Score">{{ $business->leadScore?->data_confidence_score }}</x-field>
+                    <x-field label="Independent sources">
+                        {{ $business->independent_source_count }}
+                        <span class="text-xs text-slate-500">group(s) confirm it exists</span>
+                    </x-field>
+                    <x-field label="Evidence groups">
+                        @foreach ($evidenceGroups as $group)
+                            <span class="mr-1 inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-xs">{{ $group }}</span>
+                        @endforeach
+                    </x-field>
+                    <x-field label="Conflicts">
+                        @foreach ($business->identity_conflicts ?? [] as $conflict)
+                            <div class="text-sm">
+                                <span @class(['font-medium', 'text-rose-700' => $conflict['severity'] === 'major', 'text-amber-700' => $conflict['severity'] !== 'major'])>{{ ucfirst($conflict['severity']) }}: {{ str_replace('_', ' ', $conflict['fact']) }}</span>
+                                <div class="text-xs text-slate-500" dir="auto">
+                                    @foreach ($conflict['values'] as $value)
+                                        {{ $value['value'] }} ({{ $value['provider'] }}){{ $loop->last ? '' : ' · ' }}
+                                    @endforeach
+                                    — preferred: {{ $conflict['preferred'] }}
+                                </div>
+                            </div>
+                        @endforeach
+                    </x-field>
+                    <x-field label="Last verified">{{ $business->last_verified_at?->diffForHumans() }}</x-field>
+                </dl>
             </div>
 
             <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">

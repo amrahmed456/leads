@@ -1,0 +1,8 @@
+{"type":"FeatureCollection","dataset_attributes":{"@spider":"kfc"},"features":[
+{"type":"Feature","id":"a1","properties":{"ref":"SA-001","@spider":"kfc","name":"KFC King Fahd Road","brand":"KFC","brand:wikidata":"Q524757","branch":"King Fahd Road","amenity":"fast_food","addr:city":"Riyadh","addr:country":"SA","phone":"+966920000000","website":"https://www.kfc.com.sa/en/riyadh/king-fahd-road","@source_uri":"https://www.kfc.com.sa/locations"},"geometry":{"type":"Point","coordinates":[46.67536,24.71364]}},
+{"type":"Feature","id":"a2","properties":{"ref":"SA-002","brand":"KFC","brand:wikidata":"Q524757","branch":"Olaya","amenity":"fast_food","addr:city":"Riyadh","addr:country":"SA"},"geometry":{"type":"Point","coordinates":[46.6801,24.6905]}},
+{"type":"Feature","id":"a3","properties":{"ref":"SA-003","name":"Jeddah, Red Sea Mall","brand":"KFC","brand:wikidata":"Q524757","amenity":"fast_food","addr:city":"Jeddah","addr:country":"SA"},"geometry":{"type":"Point","coordinates":[39.17,21.54]}},
+{"type":"Feature","id":"a4","properties":{"ref":"AE-001","brand":"KFC","brand:wikidata":"Q524757","amenity":"fast_food","addr:city":"Dubai","addr:country":"AE"},"geometry":{"type":"Point","coordinates":[55.27,25.20]}},
+{"type":"Feature","id":"a5","properties":{"ref":"US-001","brand":"KFC","brand:wikidata":"Q524757","amenity":"fast_food","addr:country":"US"},"geometry":{"type":"Point","coordinates":[-85.7,38.2]}},
+{"type":"Feature","id":"a6","properties":{"ref":"XX","brand":"KFC"},"geometry":{"type":"LineString","coordinates":[[0,0],[1,1]]}}
+]}

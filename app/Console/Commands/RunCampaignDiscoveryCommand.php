@@ -61,6 +61,10 @@ class RunCampaignDiscoveryCommand extends Command
             $campaign->results_truncated ? 'yes' : 'no',
         ]]);
 
+        $this->table(['Source', 'Status', 'Found', 'New', 'Merged', 'Note'], $campaign->sourceRuns()->get()->map(fn ($run): array => [
+            $run->sourceLabel(), $run->status->label(), $run->results_count, $run->created_count, $run->merged_count, $run->error_message ?? '',
+        ])->all());
+
         return self::SUCCESS;
     }
 }

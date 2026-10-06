@@ -108,14 +108,15 @@ final class WebsiteAuditScheduler
      * limit. One failing business never stops the batch.
      *
      * @param  Builder<Business>|BelongsToMany<Business, *>  $businesses
+     * @param  bool  $evaluate  Evaluate each business now; queued jobs leave it to chunked re-evaluation jobs
      * @return array{queued: int, without_website: int, skipped: int, failed: int}
      */
-    public function queueMany(Builder|BelongsToMany $businesses, bool $force = false, bool $runNow = false): array
+    public function queueMany(Builder|BelongsToMany $businesses, bool $force = false, bool $runNow = false, bool $evaluate = true): array
     {
         $summary = ['queued' => 0, 'without_website' => 0, 'skipped' => 0, 'failed' => 0];
         $spacingSeconds = 60 / max(1, $this->perMinute);
 
-        $businesses->chunkById(200, function (Collection $chunk) use (&$summary, $spacingSeconds, $force, $runNow): void {
+        $businesses->chunkById(200, function (Collection $chunk) use (&$summary, $spacingSeconds, $force, $runNow, $evaluate): void {
             foreach ($chunk as $business) {
                 try {
                     if ($runNow && $summary['queued'] > 0 && $business->website !== null) {
@@ -133,7 +134,9 @@ final class WebsiteAuditScheduler
                     }
 
                     // Score immediately with what is known; audits refine it when they finish.
-                    $this->evaluator->evaluate($business);
+                    if ($evaluate) {
+                        $this->evaluator->evaluate($business);
+                    }
                 } catch (Throwable $e) {
                     $summary['failed']++;
 

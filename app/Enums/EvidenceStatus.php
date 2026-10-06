@@ -2,11 +2,11 @@
 
 namespace App\Enums;
 
-enum LeadGrade: string
+enum EvidenceStatus: string
 {
-    case Hot = 'hot';
-    case Warm = 'warm';
-    case Cold = 'cold';
+    case Active = 'active';
+    case Stale = 'stale';
+    case Conflicting = 'conflicting';
 
     public function label(): string
     {

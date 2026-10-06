@@ -59,6 +59,9 @@
             @break
 
         @case (\App\Enums\CampaignStatus::Completed)
+            @if ($campaign->error_message)
+                <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{{ $campaign->error_message }}</div>
+            @endif
             @if ($campaign->results_truncated)
                 <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                     The provider returned its maximum number of results, so some businesses may be missing. Use a smaller radius or split the area into several campaigns.
@@ -75,6 +78,55 @@
                 :hint="$campaign->completed_at && $campaign->started_at ? 'Took '.$campaign->started_at->diffForHumans($campaign->completed_at, true) : null" />
     </dl>
 
+    @if ($sourceRuns->isNotEmpty())
+        <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+            <h2 class="border-b border-slate-200 px-5 py-3 text-base font-semibold">Sources</h2>
+            <table class="min-w-full divide-y divide-slate-100 text-sm">
+                <thead class="bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                    <tr>
+                        <th class="px-4 py-2">Source</th>
+                        <th class="px-4 py-2">Status</th>
+                        <th class="px-4 py-2 text-right">Found</th>
+                        <th class="px-4 py-2 text-right">New</th>
+                        <th class="px-4 py-2 text-right">Merged</th>
+                        <th class="px-4 py-2">Note</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @foreach ($sourceRuns as $run)
+                        <tr wire:key="run-{{ $run->id }}">
+                            <td class="px-4 py-2 font-medium">{{ $run->sourceLabel() }}</td>
+                            <td class="px-4 py-2">
+                                <span @class([
+                                    'rounded-full px-2 py-0.5 text-xs font-medium',
+                                    'bg-emerald-50 text-emerald-700' => $run->status === \App\Enums\SourceRunStatus::Completed,
+                                    'bg-rose-50 text-rose-700' => $run->status === \App\Enums\SourceRunStatus::Failed,
+                                    'bg-slate-100 text-slate-600' => $run->status === \App\Enums\SourceRunStatus::Skipped,
+                                    'bg-sky-50 text-sky-700' => ! $run->status->isFinished(),
+                                ])>{{ $run->status->label() }}</span>
+                            </td>
+                            <td class="px-4 py-2 text-right tabular-nums">{{ number_format($run->results_count) }}</td>
+                            <td class="px-4 py-2 text-right tabular-nums">{{ number_format($run->created_count) }}</td>
+                            <td class="px-4 py-2 text-right tabular-nums">{{ number_format($run->merged_count) }}</td>
+                            <td class="px-4 py-2 text-xs text-slate-500">{{ $run->error_message }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+
+    @if ($statusCounts->isNotEmpty())
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm text-slate-600 shadow-sm">
+            <span class="font-semibold text-slate-900">Lead eligibility</span>
+            @foreach (\App\Enums\LeadStatus::cases() as $status)
+                <a href="{{ route('businesses.index', ['campaign' => $campaign->id, 'status' => $status->value, 'hide_disqualified' => 0]) }}" class="hover:text-indigo-600">
+                    <span class="font-medium tabular-nums text-slate-900">{{ $statusCounts[$status->value] ?? 0 }}</span> {{ mb_strtolower($status->label()) }}
+                </a>
+            @endforeach
+        </div>
+    @endif
+
     @if ($auditCounts->isNotEmpty())
         <div class="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm text-slate-600 shadow-sm">
             <span class="font-semibold text-slate-900">Website audits</span>
@@ -88,7 +140,7 @@
     <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <h2 class="border-b border-slate-200 px-5 py-3 text-base font-semibold">Search settings</h2>
         <dl class="divide-y divide-slate-100">
-            <x-field label="Provider">{{ $campaign->providerLabel() }}</x-field>
+            <x-field label="Sources">{{ $campaign->providerLabel() }}</x-field>
             <x-field label="Category">{{ $campaign->category->label() }}</x-field>
             <x-field label="Keywords">
                 @foreach ($campaign->keywords ?? [] as $keyword)

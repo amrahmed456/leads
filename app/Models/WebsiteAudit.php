@@ -48,6 +48,8 @@ use Illuminate\Support\Str;
  * @property array<string, array{confidence: string, evidence: list<string>, data: array<string, mixed>}>|null $signals
  * @property array{declared: ?string, primary: ?string, alternates: list<string>}|null $languages
  * @property list<array{name: string, category: string, confidence: string}>|null $technologies
+ * @property array{entities: list<array<string, mixed>>}|null $structured_data
+ * @property array<string, list<string>>|null $corporate_signals
  * @property int|null $score
  * @property array{checks: list<array{key: string, label: string, points: int, max: int, passed: bool}>}|null $score_breakdown
  * @property AuditFailure|null $failure_type
@@ -107,6 +109,8 @@ class WebsiteAudit extends Model
             'signals' => 'array',
             'languages' => 'array',
             'technologies' => 'array',
+            'structured_data' => 'array',
+            'corporate_signals' => 'array',
             'score' => 'integer',
             'score_breakdown' => 'array',
             'attempts' => 'integer',

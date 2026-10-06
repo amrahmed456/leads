@@ -100,20 +100,46 @@
         </section>
 
         <section class="space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 class="text-base font-semibold">Data source</h2>
+            <div>
+                <h2 class="text-base font-semibold">Data sources</h2>
+                <p class="{{ $help }}">Every campaign runs the free brand registry and website intelligence after discovery. Paid sources are never used unless configured and selected.</p>
+            </div>
 
             <div>
-                <label for="provider" class="{{ $label }}">Discovery provider</label>
-                <select id="provider" wire:model="provider" class="{{ $input }}" required>
-                    @foreach ($providers as $key => $providerLabel)
-                        <option value="{{ $key }}">{{ $providerLabel }}</option>
+                <label for="preset" class="{{ $label }}">Preset</label>
+                <select id="preset" wire:model.live="preset" class="{{ $input }}">
+                    <option value="">Custom selection</option>
+                    @foreach ($presets as $key => $presetOption)
+                        <option value="{{ $key }}" @disabled($presetOption['paid'])>{{ $presetOption['label'] }}</option>
                     @endforeach
                 </select>
-                <p class="{{ $help }}">
-                    OpenStreetMap is free and community-maintained. Coverage varies by area, and it has no ratings or reviews.
-                </p>
-                @error('provider') <p class="{{ $error }}">{{ $message }}</p> @enderror
+                @if ($preset && isset($presets[$preset]))
+                    <p class="{{ $help }}">{{ $presets[$preset]['description'] }}</p>
+                @endif
             </div>
+
+            <fieldset>
+                <legend class="{{ $label }}">Discovery sources</legend>
+                <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                    @foreach ($discoverySources as $source)
+                        <label wire:key="source-{{ $source['key'] }}" @class([
+                            'flex gap-3 rounded-md border px-3 py-2 text-sm',
+                            'border-slate-200 bg-white' => $source['available'],
+                            'border-slate-100 bg-slate-50 text-slate-400' => ! $source['available'],
+                        ])>
+                            <input type="checkbox" value="{{ $source['key'] }}" wire:model.live="sources" @disabled(! $source['available'])
+                                   class="mt-0.5 size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                            <span>
+                                <span class="font-medium">{{ $source['label'] }}</span>
+                                <span class="ml-1 rounded bg-slate-100 px-1 text-[10px] text-slate-500 uppercase">{{ $source['tier'] }}</span>
+                                <span class="block text-xs text-slate-500">Group: {{ $source['group'] }}{{ $source['reason'] ? ' · '.$source['reason'] : '' }}</span>
+                            </span>
+                        </label>
+                    @endforeach
+                </div>
+                @error('sources') <p class="{{ $error }}">{{ $message }}</p> @enderror
+                @error('sources.*') <p class="{{ $error }}">{{ $message }}</p> @enderror
+            </fieldset>
         </section>
 
         <div class="flex items-center justify-end gap-3">

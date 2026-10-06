@@ -4,11 +4,15 @@ namespace Tests\Feature\Discovery;
 
 use App\Discovery\CampaignDiscoveryService;
 use App\Enums\CampaignStatus;
+use App\Enums\SourceRunStatus;
+use App\Jobs\DiscoverCampaignFromProvider;
 use App\Jobs\QueueCampaignAudits;
 use App\Jobs\RunCampaignDiscovery;
 use App\Models\Business;
 use App\Models\BusinessSource;
+use App\Models\CampaignSourceRun;
 use App\Models\SearchCampaign;
+use App\Models\SourcePlace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Log\Events\MessageLogged;
@@ -154,45 +158,116 @@ class CampaignDiscoveryWorkflowTest extends TestCase
         Http::assertNotSent(fn (Request $request) => $request->url() === self::OVERPASS);
     }
 
-    public function test_a_transient_failure_is_released_for_a_later_retry(): void
+    public function test_a_transient_geocoding_failure_is_released_for_a_later_retry(): void
     {
-        Http::fake([self::OVERPASS => Http::response('Too Many Requests', 429)]);
+        Http::fake([self::NOMINATIM => Http::response('Service Unavailable', 503)]);
 
-        $campaign = SearchCampaign::factory()->create();
+        $campaign = SearchCampaign::factory()->withoutCoordinates()->create();
         $job = (new RunCampaignDiscovery($campaign))->withFakeQueueInteractions();
 
         $job->handle($this->app->make(CampaignDiscoveryService::class));
 
         $job->assertReleased(delay: 60);
-        $job->assertNotFailed();
-
-        $campaign->refresh();
-        $this->assertSame(CampaignStatus::Pending, $campaign->status);
+        $this->assertSame(CampaignStatus::Pending, $campaign->refresh()->status);
         $this->assertStringStartsWith('Attempt 1 failed:', $campaign->error_message);
     }
 
-    public function test_the_last_attempt_fails_the_job(): void
+    public function test_a_transient_source_failure_is_released_for_a_later_retry(): void
     {
         Http::fake([self::OVERPASS => Http::response('Too Many Requests', 429)]);
 
-        $job = (new RunCampaignDiscovery(SearchCampaign::factory()->create()))->withFakeQueueInteractions();
+        $run = $this->startedRun(SearchCampaign::factory()->create());
+        $job = (new DiscoverCampaignFromProvider($run))->withFakeQueueInteractions();
+
+        $job->handle($this->app->make(CampaignDiscoveryService::class));
+
+        $job->assertReleased(delay: 60);
+        $this->assertSame(SourceRunStatus::Pending, $run->refresh()->status);
+        $this->assertStringStartsWith('Attempt 1 failed:', $run->error_message);
+        $this->assertSame(CampaignStatus::Running, $run->campaign->refresh()->status);
+    }
+
+    public function test_the_last_attempt_fails_the_source_and_the_campaign_when_no_source_succeeded(): void
+    {
+        Http::fake([self::OVERPASS => Http::response('Too Many Requests', 429)]);
+
+        $run = $this->startedRun(SearchCampaign::factory()->create());
+        $job = (new DiscoverCampaignFromProvider($run))->withFakeQueueInteractions();
         $job->job->attempts = 3;
 
         $job->handle($this->app->make(CampaignDiscoveryService::class));
 
-        $job->assertFailed();
         $job->assertNotReleased();
+        $this->assertSame(SourceRunStatus::Failed, $run->refresh()->status);
+        $this->assertSame(CampaignStatus::Failed, $run->campaign->refresh()->status);
+        $this->assertStringContainsString('HTTP 429', $run->campaign->error_message);
     }
 
-    public function test_a_permanent_failure_is_not_retried(): void
+    public function test_a_permanent_source_failure_is_not_retried(): void
     {
         Http::fake([self::OVERPASS => Http::response('parse error', 400)]);
 
-        $job = (new RunCampaignDiscovery(SearchCampaign::factory()->create()))->withFakeQueueInteractions();
+        $run = $this->startedRun(SearchCampaign::factory()->create());
+        $job = (new DiscoverCampaignFromProvider($run))->withFakeQueueInteractions();
 
         $job->handle($this->app->make(CampaignDiscoveryService::class));
 
-        $job->assertFailed();
         $job->assertNotReleased();
+        $this->assertSame(SourceRunStatus::Failed, $run->refresh()->status);
+    }
+
+    public function test_a_failing_source_never_discards_what_the_other_sources_found(): void
+    {
+        Queue::fake([QueueCampaignAudits::class]);
+        Http::fake([self::OVERPASS => Http::response('Service Unavailable', 503)]);
+        SourcePlace::factory()->overture()->create(['name' => 'Olaya Grill', 'latitude' => 24.7140, 'longitude' => 46.6760]);
+
+        $campaign = SearchCampaign::factory()->create(['sources' => ['openstreetmap', 'overture']]);
+
+        RunCampaignDiscovery::dispatch($campaign);
+
+        $campaign->refresh();
+        $this->assertSame(CampaignStatus::Completed, $campaign->status);
+        $this->assertSame(1, $campaign->results_count);
+        $this->assertStringContainsString('OpenStreetMap / Overpass: The Overpass API is busy', $campaign->error_message);
+        $this->assertSame(['openstreetmap' => SourceRunStatus::Failed, 'overture' => SourceRunStatus::Completed],
+            $campaign->sourceRuns()->pluck('status', 'source')->all());
+        $this->assertSame('Olaya Grill', Business::sole()->name);
+        Queue::assertPushed(QueueCampaignAudits::class);
+    }
+
+    public function test_an_unavailable_source_is_skipped_with_the_reason(): void
+    {
+        Queue::fake([QueueCampaignAudits::class]);
+        Http::fake([self::OVERPASS => Http::response($this->fixture('overpass-riyadh-restaurants.json'))]);
+
+        $campaign = SearchCampaign::factory()->create(['sources' => ['openstreetmap', 'geoapify']]);
+
+        RunCampaignDiscovery::dispatch($campaign);
+
+        $geoapify = $campaign->sourceRuns()->where('source', 'geoapify')->sole();
+        $this->assertSame(SourceRunStatus::Skipped, $geoapify->status);
+        $this->assertSame('Geoapify Places needs credentials (Settings → Data Sources).', $geoapify->error_message);
+        $this->assertSame(CampaignStatus::Completed, $campaign->refresh()->status);
+        $this->assertSame(4, $campaign->results_count);
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'geoapify'));
+    }
+
+    public function test_a_campaign_created_before_multi_source_discovery_uses_its_provider(): void
+    {
+        Queue::fake([QueueCampaignAudits::class]);
+        Http::fake([self::OVERPASS => Http::response($this->fixture('overpass-riyadh-restaurants.json'))]);
+
+        $campaign = SearchCampaign::factory()->create(['provider' => 'openstreetmap', 'sources' => null]);
+
+        RunCampaignDiscovery::dispatch($campaign);
+
+        $this->assertSame(['openstreetmap'], $campaign->sourceRuns()->pluck('source')->all());
+        $this->assertSame(CampaignStatus::Completed, $campaign->refresh()->status);
+    }
+
+    private function startedRun(SearchCampaign $campaign): CampaignSourceRun
+    {
+        return $this->app->make(CampaignDiscoveryService::class)->start($campaign)[0];
     }
 }

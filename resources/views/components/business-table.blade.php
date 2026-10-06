@@ -6,6 +6,7 @@
             <tr>
                 <th class="px-4 py-3">Lead</th>
                 <th class="px-4 py-3">Business</th>
+                <th class="px-4 py-3">Entity</th>
                 <th class="px-4 py-3">Top opportunity</th>
                 <th class="px-4 py-3">Category</th>
                 <th class="px-4 py-3">City</th>
@@ -25,6 +26,12 @@
                         <a href="{{ route('businesses.show', $business) }}" class="font-medium text-slate-900 hover:text-indigo-600">{{ $business->name }}</a>
                         @if ($business->alternate_name)
                             <div class="truncate text-xs text-slate-500">{{ $business->alternate_name }}</div>
+                        @endif
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <x-entity-type :type="$business->entity_type" :confidence="$business->entity_confidence" />
+                        @if ($business->brand)
+                            <div class="mt-0.5 text-xs text-slate-500" title="Brand ({{ $business->brand_confidence }}% confidence)">{{ $business->brand->name }}</div>
                         @endif
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
@@ -75,7 +82,7 @@
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
                         @foreach ($business->sources->pluck('provider')->unique() as $provider)
-                            <span class="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{{ app(\App\Discovery\DiscoveryProviderRegistry::class)->label($provider) }}</span>
+                            <span class="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{{ app(\App\Sources\SourceRegistry::class)->label($provider) }}</span>
                         @endforeach
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-slate-500" title="{{ $business->first_discovered_at->toDayDateTimeString() }} UTC">
@@ -84,7 +91,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="10" class="px-4 py-10 text-center text-slate-500">{{ $empty }}</td>
+                    <td colspan="11" class="px-4 py-10 text-center text-slate-500">{{ $empty }}</td>
                 </tr>
             @endforelse
         </tbody>

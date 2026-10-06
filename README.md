@@ -267,28 +267,52 @@ opportunities. Category needs and priorities live in `config/intelligence.php`.
 | Multilingual website | Only Arabic or only English, with no link to the other version |
 | Custom business system, Mobile app | Reserved; no deterministic rule yet |
 
-### Lead score (`app/Intelligence/Scoring/LeadScoringService`)
+### Lead qualification (`app/Identity`, `app/Intelligence`)
 
-Rule-based, 0–100, with weights in `config/intelligence.php` (`lead_score`,
-versioned). Every contributing rule is stored with its points and shown in the UI.
+Being found by a provider never makes a lead. Every business goes through:
 
-| Component | Points |
-|---|---|
-| Website status | no website +40 · down/broken +30 · weak (< 50) +15 · average (< 80) +5 · strong 0 |
-| No website, but the category needs booking/ordering/e-commerce | +8 (high need) / +4 (medium) |
-| Each other opportunity | high +10 · medium +6 · low +3, capped at 25 in total |
-| Reachability | phone +8 · e-mail +4 · WhatsApp +3 · social profiles +5 · none at all −15 |
-| Profile | verified location +2 · high-value category +10 · other listed category +5 |
+```
+sources → evidence (with provenance) → entity resolution → brand detection →
+entity classification → data confidence + business fit + opportunity → eligibility
+```
 
-Grades: **hot** ≥ 70, **warm** ≥ 45, otherwise **cold**.
+- **Evidence** (`business_evidence`): every fact a source states (name, brand,
+  phone, website, parent organization…) with its provider, role, independence
+  group, confidence and dates. Conflicting values are kept; the preferred one
+  follows `intelligence.identity.source_priority`.
+- **Independence groups**: OpenStreetMap and Geoapify are both `osm_family` and
+  count once. An Overture record built only from AllThePlaces data counts as
+  `first_party`, not as independent Overture evidence.
+- **Brand detection**: brand Wikidata IDs and store-locator branches are strong;
+  an explicit brand tag or an exact registered brand name is medium; a name that
+  merely contains a brand is a weak hint and never classifies on its own.
+- **Entity type**: independent, local business, local multi-branch, franchise,
+  regional / national / international chain, enterprise, corporate, government,
+  non-profit, aggregator, directory or unknown, with reason codes.
+- **Scores** (0–100, each explained): *data confidence* (is it real and current?),
+  *business fit* (is this kind of business a target? chains, enterprises and
+  government are penalized), *opportunity* (digital gaps we can fix; a strong
+  existing presence lowers it).
+- **Eligibility**: `DISQUALIFIED` for confident chain/enterprise/government/
+  marketplace classifications, closed businesses and strong presences with
+  nothing to sell; `REVIEW_REQUIRED` for doubt (unknown entity, conflicts, chain
+  hints, franchises); `HOT` only when every requirement in
+  `intelligence.eligibility.hot` holds (two independent source groups, a contact
+  route, a service we sell…); otherwise `WARM` or `LOW`.
+
+All thresholds, penalties and category lists live in `config/intelligence.php`.
+After changing them, run `php artisan businesses:recalculate-eligibility`.
 
 ## Queues
 
-Discovery always runs in a queued job (`App\Jobs\RunCampaignDiscovery`):
+Discovery runs in queued jobs: `App\Jobs\RunCampaignDiscovery` locates the area
+and queues one `App\Jobs\DiscoverCampaignFromProvider` per discovery source:
 
-- Up to 3 attempts. Transient failures (timeouts, HTTP 429/5xx, connection errors)
-  are retried after 60 s and then 300 s. Permanent failures (unknown location,
-  rejected query) fail at once.
+- Each source has up to 3 attempts. Transient failures (timeouts, HTTP 429/5xx,
+  connection errors) are retried after 60 s and then 300 s. Permanent failures
+  (rejected query, missing API key, used-up quota) fail that source at once.
+- A failing source never fails the others: the campaign completes with what the
+  other sources found, and fails only when every source failed.
 - Campaign status moves through `pending → running → completed | failed`.
 - `ShouldBeUnique`: the same campaign cannot be queued twice at once.
 - Job timeout is 300 s, so `retry_after` defaults to 600 s.
@@ -324,6 +348,10 @@ Redis is optional; `QUEUE_CONNECTION=database` is the supported default.
 | `queue:work --stop-when-empty --max-time=50` | every minute | Processes the database queue without a daemon (when `QUEUE_SCHEDULED_WORKER=true`) |
 | `campaigns:fail-stale` | every 15 min | Fails campaigns stuck in *running* > 60 min (worker died) |
 | `audits:fail-stale` | every 15 min | Fails audits *running* > 30 min or *queued* > 48 h |
+| `providers:health` | hourly | Records each data source's health for Settings → Data Sources |
+| `sources:sync` | daily 02:30 | Syncs enabled AllThePlaces spiders not synced in 6 days |
+| `brands:refresh` | Mondays 03:00 | Refreshes the brand registry from the Name Suggestion Index |
+| `businesses:recalculate-eligibility --outdated` | daily 04:00 | Re-qualifies businesses scored with older rules |
 
 Locally, either run `php artisan queue:work` (and set `QUEUE_SCHEDULED_WORKER=false`)
 or run `php artisan schedule:work`.
@@ -345,7 +373,15 @@ No Redis, Supervisor, Docker, Node server or daemon is required.
    php artisan migrate --force
    php artisan config:cache && php artisan route:cache && php artisan view:cache
    php artisan app:create-user
+   php artisan brands:refresh --sync          # brand registry (a few minutes)
+   php artisan businesses:recalculate-eligibility
    ```
+
+   Optional free data: import GeoNames cities (`php artisan geo:import geonames`),
+   add AllThePlaces spiders and Overture extracts under *Data sources*. Overture
+   extracts larger than the upload limit can be uploaded with the File Manager
+   to `storage/app/private/imports/overture/` and imported with
+   `php artisan overture:import imports/overture/<file> --sync`.
 
 4. Add **one** cron job in cPanel → *Cron Jobs* → *Once Per Minute*
    (`* * * * *`). Use the PHP CLI path your host shows (often
@@ -395,8 +431,18 @@ unnecessary on Linux hosts.
 | `LOG_AUDITS_STACK` | `audits_file` | Channels that receive audit logs (`storage/logs/audits-*.log`) |
 | `QUEUE_SCHEDULED_WORKER` | `true` | Run a short-lived queue worker from the scheduler (cPanel) |
 | `QUEUE_SCHEDULED_WORKER_MAX_TIME` | `50` | Seconds that worker keeps taking new jobs |
+| `SOURCES_QUEUE` | `default` | Queue for imports, spider syncs and re-qualification |
+| `SOURCES_DEFAULT_PRESET` | `free_balanced` | Preset pre-selected for new campaigns |
+| `GEOAPIFY_API_KEY` | empty | Optional; better entered (encrypted) under Data sources |
+| `GEOAPIFY_DAILY_CREDITS` | `3000` | Daily Geoapify credit budget |
+| `GEONAMES_USERNAME` | empty | Optional GeoNames web service account |
+| `OVERTURE_MAX_UPLOAD_MB` / `OVERTURE_MAX_REMOTE_MB` | `50` / `100` | Extract size limits |
+| `OVERTURE_MIN_CONFIDENCE` | `0.35` | Overture places below this existence confidence are skipped |
+| `OVERTURE_DUCKDB_ENABLED` | `false` | Optional DuckDB extraction mode (needs a `duckdb` binary) |
+| `ATP_MAX_DOWNLOAD_MB` / `ATP_COUNTRIES` | `60` / campaign countries | Spider download cap and countries kept |
+| `LEADS_FRANCHISE_TREATMENT` | `review` | `review`, `warm` or `disqualify` |
 
-No API keys are needed.
+No API key is required: every default source is free.
 
 ## Tests
 

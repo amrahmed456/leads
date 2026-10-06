@@ -255,6 +255,84 @@ final class HtmlDocument
         return array_values(array_unique($types));
     }
 
+    /**
+     * Decoded JSON-LD blocks (each may be an object, a list or an @graph).
+     *
+     * @return list<array<mixed>>
+     */
+    public function jsonLd(): array
+    {
+        $blocks = [];
+
+        foreach ($this->values('//script[@type="application/ld+json"]', 50) as $json) {
+            // Some sites wrap JSON-LD in HTML comments or CDATA.
+            $json = trim((string) preg_replace('/^\s*(?:<!--|\/\/<!\[CDATA\[)|(?:-->|\/\/\]\]>)\s*$/', '', $json));
+            $data = json_decode($json, true);
+
+            if (is_array($data)) {
+                $blocks[] = $data;
+            }
+        }
+
+        return $blocks;
+    }
+
+    /**
+     * Top-level microdata (itemscope/itemtype/itemprop) and RDFa
+     * (typeof/property) items, as Schema.org-like arrays.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function microdataAndRdfa(): array
+    {
+        $items = [];
+
+        foreach ($this->nodes('//*[@itemscope and @itemtype and not(ancestor::*[@itemscope])]') as $node) {
+            $items[] = $this->item($node, 'itemtype', 'itemprop', 'itemscope');
+        }
+
+        foreach ($this->nodes('//*[@typeof and not(ancestor::*[@typeof])]') as $node) {
+            $items[] = $this->item($node, 'typeof', 'property', 'typeof');
+        }
+
+        return array_slice($items, 0, 50);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function item(DOMElement $node, string $typeAttribute, string $propertyAttribute, string $scopeAttribute, int $depth = 0): array
+    {
+        $types = array_map(
+            fn (string $type): string => (string) preg_replace('#^(?:https?://schema\.org/|schema:)#i', '', $type),
+            preg_split('/\s+/', trim($node->getAttribute($typeAttribute))) ?: [],
+        );
+        $item = ['@type' => count($types) === 1 ? $types[0] : $types];
+
+        foreach ($this->nodes(".//*[@{$propertyAttribute}]", $node) as $property) {
+            // Only direct properties: skip those belonging to a nested item.
+            $owner = $property->parentNode;
+            while ($owner instanceof DOMElement && $owner !== $node && ! $owner->hasAttribute($scopeAttribute)) {
+                $owner = $owner->parentNode;
+            }
+
+            if ($owner !== $node) {
+                continue;
+            }
+
+            $name = (string) preg_replace('#^(?:https?://schema\.org/|schema:)#i', '', trim($property->getAttribute($propertyAttribute)));
+            $value = $property->hasAttribute($scopeAttribute) && $depth < 3
+                ? $this->item($property, $typeAttribute, $propertyAttribute, $scopeAttribute, $depth + 1)
+                : (Text::clean($property->getAttribute('content') ?: $property->getAttribute('href') ?: $property->getAttribute('src') ?: $property->textContent, 500) ?? '');
+
+            if ($name !== '' && $value !== '' && ! isset($item[$name])) {
+                $item[$name] = $value;
+            }
+        }
+
+        return $item;
+    }
+
     public function exists(string $query): bool
     {
         return $this->xpath->query($query)->length > 0;

@@ -1,0 +1,59 @@
+{
+  "properties": {
+    "path": "brands/amenity/fast_food",
+    "exclude": {"generic": ["^burger$"]}
+  },
+  "items": [
+    {
+      "displayName": "KFC",
+      "id": "kfc-658eea",
+      "locationSet": {"include": ["001"]},
+      "matchNames": ["kentucky fried chicken", "kfc restaurant"],
+      "tags": {
+        "amenity": "fast_food",
+        "brand": "KFC",
+        "brand:ar": "كنتاكي",
+        "brand:wikidata": "Q524757",
+        "cuisine": "chicken",
+        "name": "KFC",
+        "name:ar": "كنتاكي"
+      }
+    },
+    {
+      "displayName": "Al Baik",
+      "id": "albaik-2a1f2f",
+      "locationSet": {"include": ["sa", "ae", "bh"]},
+      "tags": {
+        "amenity": "fast_food",
+        "brand": "Al Baik",
+        "brand:ar": "البيك",
+        "brand:wikidata": "Q2649768",
+        "name": "Al Baik",
+        "name:ar": "البيك"
+      }
+    },
+    {
+      "displayName": "Kudu",
+      "id": "kudu-3c4d5e",
+      "locationSet": {"include": ["sa"]},
+      "tags": {
+        "amenity": "fast_food",
+        "brand": "Kudu",
+        "brand:ar": "كودو",
+        "brand:wikidata": "Q6442938",
+        "name": "Kudu"
+      }
+    },
+    {
+      "displayName": "Culver's",
+      "id": "culvers-77aa11",
+      "locationSet": {"include": ["us"]},
+      "tags": {"amenity": "fast_food", "brand": "Culver's", "brand:wikidata": "Q1143589", "name": "Culver's"}
+    },
+    {
+      "id": "broken",
+      "locationSet": {"include": ["001"]},
+      "tags": {}
+    }
+  ]
+}
