@@ -282,6 +282,29 @@ versioned). Every contributing rule is stored with its points and shown in the U
 
 Grades: **hot** ≥ 70, **warm** ≥ 45, otherwise **cold**.
 
+### WhatsApp outreach messages (`app/Intelligence/Outreach`)
+
+Every business with an opportunity gets a suggested **first message in Arabic**.
+It appears on the business page (editable, with *Open in WhatsApp* and *Copy*)
+and as a **WhatsApp** button in the business tables. Nothing is ever sent
+automatically: the button opens WhatsApp with the message filled in, and you
+send it yourself.
+
+- **Deterministic templates, no AI.** The message leads with the top
+  opportunity and states only what was found ("لاحظت" for verified facts,
+  "لم ألاحظ … في موقعكم" for absences, since only the homepage is checked). It
+  adds up to two further ideas and ends with a no-commitment question.
+- **Number used for the `wa.me` link**, in order: a number listed as WhatsApp
+  (business profile, then a WhatsApp link on its website), then a **mobile**
+  number (business profile, then the website). Landlines, unified 920 and
+  toll-free numbers are skipped, because WhatsApp links to them usually fail.
+  Such businesses show *Message only* (copy it and use another channel).
+- Set `OUTREACH_SENDER_NAME` (and optionally `OUTREACH_SENDER_COMPANY`) to
+  start with a short introduction and sign off with your name.
+
+Review each message before sending, and contact businesses in line with
+WhatsApp's policies and local regulations.
+
 ## Queues
 
 Discovery always runs in a queued job (`App\Jobs\RunCampaignDiscovery`):
@@ -395,6 +418,7 @@ unnecessary on Linux hosts.
 | `LOG_AUDITS_STACK` | `audits_file` | Channels that receive audit logs (`storage/logs/audits-*.log`) |
 | `QUEUE_SCHEDULED_WORKER` | `true` | Run a short-lived queue worker from the scheduler (cPanel) |
 | `QUEUE_SCHEDULED_WORKER_MAX_TIME` | `50` | Seconds that worker keeps taking new jobs |
+| `OUTREACH_SENDER_NAME` / `OUTREACH_SENDER_COMPANY` | empty | Introduce yourself in the suggested WhatsApp messages |
 
 No API keys are needed.
 

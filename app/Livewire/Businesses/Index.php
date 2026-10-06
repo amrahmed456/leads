@@ -88,7 +88,7 @@ class Index extends Component
         $registry = app(DiscoveryProviderRegistry::class);
 
         return view('livewire.businesses.index', [
-            'businesses' => $this->query()->with(['sources', 'leadScore', 'opportunities'])->paginate(25),
+            'businesses' => $this->query()->with(['sources', 'leadScore', 'opportunities.websiteAudit'])->paginate(25),
             'campaigns' => SearchCampaign::query()->latest()->pluck('name', 'id'),
             'providers' => BusinessSource::query()->distinct()->orderBy('provider')->pluck('provider')
                 ->mapWithKeys(fn (string $provider) => [$provider => $registry->label($provider)]),

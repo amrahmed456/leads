@@ -16,7 +16,7 @@ use Livewire\Component;
 #[Title('Dashboard')]
 class Dashboard extends Component
 {
-    private const TABLE_RELATIONS = ['sources', 'leadScore', 'opportunities'];
+    private const TABLE_RELATIONS = ['sources', 'leadScore', 'opportunities.websiteAudit'];
 
     public function mount(): void
     {

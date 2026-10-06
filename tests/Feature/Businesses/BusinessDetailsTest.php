@@ -101,6 +101,30 @@ class BusinessDetailsTest extends TestCase
         Queue::assertNotPushed(AuditBusinessWebsite::class);
     }
 
+    public function test_shows_an_arabic_whatsapp_message_ready_to_send(): void
+    {
+        $business = Business::factory()->create(['name' => 'Smile Dental', 'website' => null, 'phone' => '+966501234567']);
+        $this->app->make(BusinessEvaluator::class)->evaluate($business);
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('businesses.show', $business))
+            ->assertOk()
+            ->assertSeeInOrder(['WhatsApp message', 'وجدت «Smile Dental» على الخريطة', 'Open in WhatsApp', '+966501234567'])
+            ->assertSee('href="https://wa.me/966501234567?text=%D8%A7%D9%84%D8%B3%D9%84%D8%A7%D9%85', false);
+    }
+
+    public function test_a_business_without_a_mobile_number_gets_a_message_to_copy_only(): void
+    {
+        $business = Business::factory()->create(['website' => null, 'phone' => '+966112345678']);
+        $this->app->make(BusinessEvaluator::class)->evaluate($business);
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('businesses.show', $business))
+            ->assertOk()
+            ->assertSee('No mobile or WhatsApp number found')
+            ->assertDontSee('Open in WhatsApp');
+    }
+
     public function test_the_page_requires_authentication(): void
     {
         $this->get(route('businesses.show', Business::factory()->create()))->assertRedirect(route('login'));

@@ -4,6 +4,7 @@ namespace App\Livewire\Businesses;
 
 use App\Auditing\WebsiteAuditScheduler;
 use App\Intelligence\BusinessEvaluator;
+use App\Intelligence\Outreach\OutreachMessageComposer;
 use App\Models\Business;
 use App\Models\Opportunity;
 use Illuminate\View\View;
@@ -42,12 +43,12 @@ class Show extends Component
         $this->redirectRoute('businesses.show', $this->business);
     }
 
-    public function render(BusinessEvaluator $evaluator): View
+    public function render(BusinessEvaluator $evaluator, OutreachMessageComposer $outreach): View
     {
         $this->business->load([
             'sources' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('id'),
             'campaigns' => fn ($query) => $query->latest(),
-            'opportunities',
+            'opportunities.websiteAudit',
             'leadScore',
         ]);
 
@@ -57,6 +58,8 @@ class Show extends Component
             'opportunities' => $this->business->opportunities
                 ->sortByDesc(fn (Opportunity $opportunity): int => $opportunity->priority->rank())
                 ->values(),
+            'outreach' => $outreach->compose($this->business),
+            'senderConfigured' => filled(config('intelligence.outreach.sender_name')),
         ])->title($this->business->name);
     }
 }

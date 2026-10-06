@@ -5,6 +5,7 @@ namespace Tests\Feature\Businesses;
 use App\Enums\BusinessCategory;
 use App\Enums\LeadGrade;
 use App\Enums\OpportunityType;
+use App\Intelligence\BusinessEvaluator;
 use App\Livewire\Businesses\Index;
 use App\Models\Business;
 use App\Models\LeadScore;
@@ -105,6 +106,19 @@ class BusinessListTest extends TestCase
 
         $this->assertListed(['مطعم الريف'], $this->list()->set('opportunity', 'website_missing'));
         $this->assertListed(['Kudu', 'Smile Dental', 'مطعم الريف'], $this->list()->set('opportunity', 'not-a-type'));
+    }
+
+    public function test_businesses_that_can_be_messaged_get_a_whatsapp_link(): void
+    {
+        $evaluator = $this->app->make(BusinessEvaluator::class);
+        $evaluator->evaluate($this->reef);
+        $evaluator->evaluate($this->smile);
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('businesses.index'))
+            ->assertOk()
+            ->assertSee('href="https://wa.me/966501234567?text=', false)
+            ->assertSee('Message only');
     }
 
     public function test_business_details_show_all_available_information(): void

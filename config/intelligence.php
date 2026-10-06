@@ -135,4 +135,19 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Outreach Messages
+    |--------------------------------------------------------------------------
+    |
+    | The Arabic WhatsApp message suggested for each lead introduces you with
+    | these details. Leave them empty to send messages without an introduction.
+    |
+    */
+
+    'outreach' => [
+        'sender_name' => env('OUTREACH_SENDER_NAME'),
+        'sender_company' => env('OUTREACH_SENDER_COMPANY'),
+    ],
+
 ];

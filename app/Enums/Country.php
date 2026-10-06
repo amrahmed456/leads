@@ -68,6 +68,37 @@ enum Country: string
     }
 
     /**
+     * Pattern of a mobile national number: the numbers that can have WhatsApp
+     * (landlines, unified 920 and toll-free numbers usually cannot).
+     */
+    public function mobileNumberPattern(): string
+    {
+        return match ($this) {
+            self::SaudiArabia, self::UnitedArabEmirates => '/^5\d{8}$/',
+            self::Qatar => '/^[3567]\d{7}$/',
+            self::Kuwait => '/^[569]\d{7}$/',
+            self::Bahrain => '/^(?:3\d{7}|66\d{6})$/',
+            self::Oman => '/^[79]\d{7}$/',
+        };
+    }
+
+    /**
+     * Whether an E.164 number (e.g. +966501234567) is a mobile number of a supported country.
+     */
+    public static function isMobileNumber(string $e164): bool
+    {
+        foreach (self::cases() as $country) {
+            $prefix = '+'.$country->callingCode();
+
+            if (str_starts_with($e164, $prefix)) {
+                return preg_match($country->mobileNumberPattern(), substr($e164, strlen($prefix))) === 1;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Common cities offered as suggestions in the campaign form. Any other
      * city or area name can be typed; it is geocoded at discovery time.
      *

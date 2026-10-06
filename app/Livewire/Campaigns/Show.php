@@ -44,7 +44,7 @@ class Show extends Component
     {
         return view('livewire.campaigns.show', [
             'businesses' => $this->campaign->businesses()
-                ->with(['sources', 'leadScore', 'opportunities'])
+                ->with(['sources', 'leadScore', 'opportunities.websiteAudit'])
                 ->orderByDesc(LeadScore::select('score')->whereColumn('lead_scores.business_id', 'businesses.id'))
                 ->orderBy('name')
                 ->paginate(25),

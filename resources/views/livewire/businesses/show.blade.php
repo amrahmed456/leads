@@ -48,6 +48,53 @@
                 @endforelse
             </div>
 
+            @if ($outreach)
+                <div wire:key="outreach-{{ $outreach->opportunity->value }}" wire:ignore
+                     x-data="{ message: @js($outreach->text), number: @js($outreach->whatsappNumber), copied: false }"
+                     class="overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100 bg-emerald-50/60 px-5 py-3">
+                        <h2 class="text-base font-semibold">WhatsApp message</h2>
+                        <span class="text-xs text-slate-500">Arabic · based on the findings · editable</span>
+                    </div>
+
+                    <div class="space-y-3 px-5 py-4">
+                        <label for="outreach-message" class="sr-only">Message</label>
+                        <textarea id="outreach-message" x-model="message" dir="rtl" lang="ar" rows="11"
+                                  class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm leading-relaxed shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none">{{ $outreach->text }}</textarea>
+
+                        <div class="flex flex-wrap items-center gap-3">
+                            @if ($outreach->whatsappNumber)
+                                <a href="{{ $outreach->whatsappUrl() }}" :href="'https://wa.me/' + number + '?text=' + encodeURIComponent(message)"
+                                   target="_blank" rel="noopener noreferrer"
+                                   class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500">
+                                    <svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .1-1.3c0-.1-.2-.2-.5-.3Z"/></svg>
+                                    Open in WhatsApp
+                                </a>
+                                <span class="text-sm">
+                                    <span class="tabular-nums text-slate-900" dir="ltr">+{{ $outreach->whatsappNumber }}</span>
+                                    <span class="text-xs text-slate-500">· {{ $outreach->numberSource }}{{ $outreach->numberIsWhatsapp ? '' : ' (WhatsApp not confirmed)' }}</span>
+                                </span>
+                            @else
+                                <span class="text-sm text-amber-700">No mobile or WhatsApp number found. Copy the message and use another channel.</span>
+                            @endif
+
+                            <button type="button" x-on:click="navigator.clipboard.writeText(message).then(() => { copied = true; setTimeout(() => copied = false, 2000) })"
+                                    class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                                <span x-show="! copied">Copy message</span>
+                                <span x-show="copied" x-cloak>Copied</span>
+                            </button>
+                        </div>
+
+                        <p class="text-xs text-slate-500">
+                            Written from this business's findings. Review it before sending; nothing is sent automatically.
+                            @unless ($senderConfigured)
+                                Set <code class="rounded bg-slate-100 px-1">OUTREACH_SENDER_NAME</code> (and optionally <code class="rounded bg-slate-100 px-1">OUTREACH_SENDER_COMPANY</code>) in .env to introduce yourself in the message.
+                            @endunless
+                        </p>
+                    </div>
+                </div>
+            @endif
+
             <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-3">
                     <h2 class="text-base font-semibold">Digital presence</h2>

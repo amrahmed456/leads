@@ -13,6 +13,8 @@ use App\Auditing\WebsiteFetcher;
 use App\Intelligence\BusinessEvaluator;
 use App\Intelligence\CategoryNeeds;
 use App\Intelligence\Opportunities\Rules\WebsiteRedesignRule;
+use App\Intelligence\Outreach\OutreachMessageComposer;
+use App\Intelligence\Outreach\WhatsAppNumberResolver;
 use App\Intelligence\Scoring\LeadScoringService;
 use App\Jobs\AuditBusinessWebsite;
 use App\Support\Normalization\UrlNormalizer;
@@ -71,6 +73,13 @@ class IntelligenceServiceProvider extends ServiceProvider
             (array) config('intelligence.lead_score'),
             (array) config('intelligence.category_value'),
             $app->make(CategoryNeeds::class),
+        ));
+
+        $this->app->bind(OutreachMessageComposer::class, fn (Application $app) => new OutreachMessageComposer(
+            $app->make(WhatsAppNumberResolver::class),
+            $app->make(CategoryNeeds::class),
+            senderName: config('intelligence.outreach.sender_name') ?: null,
+            senderCompany: config('intelligence.outreach.sender_company') ?: null,
         ));
     }
 
